@@ -1,0 +1,32 @@
+# ============================================================
+# 应用运行时依赖（API 服务 / 数据入库 Worker / AI 客户端）
+# 版本已锁定，保证可复现、避免 pip 回溯解析（回溯会极慢且易失败）
+# Airflow、专用向量库见 requirements-pipeline.txt
+# ============================================================
+
+# Web / API
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# Pydantic 生态（FastAPI 与 pydantic-settings 的公共约束，统一下锁）
+pydantic==2.10.4
+pydantic-settings==2.7.1
+
+# ORM / 数据库
+SQLAlchemy==2.0.36
+asyncpg==0.30.0
+alembic==1.14.0
+pgvector==0.3.6
+psycopg[binary]==3.2.3
+
+# 缓存
+redis==5.2.1
+
+# 数据抓取与管道客户端
+aiokafka==0.12.0
+httpx==0.28.1
+beautifulsoup4==4.12.3
+lxml==5.3.0
+
+# LLM / Embedding（OpenAI 兼容协议）
+openai==1.59.6

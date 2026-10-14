@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Domel 电机市场情报 AI 助手</title>
+<style>
+  :root{
+    --navy:#1F3A5F; --accent:#2E6DA4; --accent-soft:#E8F0F9;
+    --bg:#F4F7FB; --card:#FFFFFF; --ink:#1C2430; --grey:#5A6472; --faint:#8A94A3;
+    --line:#DCE4EE; --line-soft:#EDF2F8;
+    --ok:#1F7A4D; --ok-bg:#E6F4EC;
+    --warn:#8A5A00; --warn-bg:#FFF4DF;
+    --err:#9B2C2C; --err-bg:#FDECEC;
+    --shadow:0 1px 2px rgba(31,58,95,.06), 0 6px 20px rgba(31,58,95,.06);
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none !important}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--ink); min-height:100vh; font-size:14.5px;
+    font-family:"Segoe UI","Microsoft YaHei",system-ui,-apple-system,Helvetica,Arial,sans-serif;
+    line-height:1.55; -webkit-font-smoothing:antialiased;
+  }
+  button{font:inherit;cursor:pointer;border:none;background:none;color:inherit}
+  input,select,textarea{font:inherit;color:inherit}
+  a{color:var(--accent)}
+  h1,h2,h3,h4{margin:0}
+
+  /* ---------- 登录 ---------- */
+  #loginScreen{display:grid;place-items:center;min-height:100vh;padding:32px 20px}
+  .authcard{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);
+    width:100%;max-width:460px;padding:32px}
+  .brand{display:flex;align-items:baseline;gap:8px;margin-bottom:4px}
+  .brand .mark{font-weight:700;font-size:21px;color:var(--navy);letter-spacing:-.3px}
+  .brand .tag{font-size:11.5px;color:var(--faint)}
+  .sub{color:var(--grey);font-size:13px;margin:6px 0 22px}
+  .tabs{display:flex;gap:6px;background:var(--bg);border-radius:10px;padding:4px;margin-bottom:20px}
+  .tabs button{flex:1;padding:9px;border-radius:7px;font-size:14px;color:var(--grey);transition:.15s}
+  .tabs button.on{background:var(--card);color:var(--navy);font-weight:600;box-shadow:0 1px 3px rgba(31,58,95,.1)}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:12.5px;color:var(--grey);margin-bottom:6px;font-weight:500}
+  .field input,.field select,.field textarea{width:100%;padding:10px 12px;border:1px solid var(--line);
+    border-radius:9px;background:#FCFDFF;outline:none;transition:.15s}
+  .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent);background:#fff;
+    box-shadow:0 0 0 3px rgba(46,109,164,.1)}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:6px 13px;font-size:13px;
+    color:var(--grey);transition:.15s}
+  .chip:hover{border-color:var(--accent);color:var(--accent)}
+  .chip.on{background:var(--accent-soft);border-color:var(--accent);color:var(--navy);font-weight:600}
+  .btn{background:var(--navy);color:#fff;border-radius:9px;padding:10px 18px;font-weight:600;transition:.15s}
+  .btn:hover{background:#16304F}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn.sm{padding:7px 13px;font-size:13px;border-radius:8px}
+  .btn.ghost{background:var(--card);color:var(--grey);border:1px solid var(--line);font-weight:500}
+  .btn.ghost:hover{border-color:#C3D2E4;color:var(--navy);background:var(--card)}
+  .err{background:var(--err-bg);color:var(--err);border-radius:8px;padding:9px 12px;font-size:13px;margin-bottom:14px}
+  .hint{font-size:12px;color:var(--faint);margin-top:12px}
+
+  /* ---------- 应用外壳 ---------- */
+  .topbar{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+  .topbar .inner{display:flex;align-items:center;gap:16px;height:58px;padding:0 20px}
+  .spacer{flex:1}
+  .userchip{display:flex;align-items:center;gap:9px;background:var(--accent-soft);border-radius:999px;
+    padding:5px 12px 5px 6px;font-size:13px;color:var(--navy)}
+  .avatar{width:26px;height:26px;border-radius:50%;background:var(--navy);color:#fff;display:grid;place-items:center;
+    font-size:12px;font-weight:600}
+  .layout{display:grid;grid-template-columns:210px 1fr;gap:0;min-height:calc(100vh - 58px - 40px)}
+  .sidenav{background:var(--card);border-right:1px solid var(--line);padding:16px 12px}
+  .sidenav button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 12px;
+    border-radius:9px;color:var(--grey);font-size:14px;margin-bottom:4px;transition:.15s}
+  .sidenav button:hover{background:var(--bg);color:var(--navy)}
+  .sidenav button.on{background:var(--accent-soft);color:var(--navy);font-weight:600}
+  .sidenav .dot{width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.5}
+  main{padding:24px 26px 40px;overflow:auto}
+  .page-head{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+  .page-head h2{font-size:19px;color:var(--navy);letter-spacing:-.3px}
+  .page-head p{color:var(--grey);font-size:13px;margin:4px 0 0}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
+    padding:18px 20px;margin-bottom:16px}
+  .card h3{font-size:14px;color:var(--navy);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .grid{display:grid;gap:14px}
+  .grid.c3{grid-template-columns:repeat(3,1fr)}
+  .grid.c4{grid-template-columns:repeat(4,1fr)}
+  .grid.c2{grid-template-columns:1fr 1fr}
+
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .kpi .n{font-size:24px;font-weight:700;color:var(--navy);letter-spacing:-.5px}
+  .kpi .l{font-size:12px;color:var(--faint);margin-top:2px}
+  .badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:3px 9px;border-radius:999px}
+  .badge.ok{background:var(--ok-bg);color:var(--ok)}
+  .badge.no{background:var(--err-bg);color:var(--err)}
+  .badge.info{background:var(--accent-soft);color:var(--navy)}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line-soft)}
+  th{color:var(--faint);font-weight:600;font-size:12px;letter-spacing:.4px;text-transform:uppercase}
+  tr:last-child td{border-bottom:none}
+  .mono{font-family:"Cascadia Code",Consolas,monospace;font-size:12.5px}
+
+  .list{display:flex;flex-direction:column;gap:10px}
+  .list .item{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:#FCFDFF}
+  .list .item .t{font-weight:600;color:var(--ink);margin-bottom:4px}
+  .list .item .m{font-size:12.5px;color:var(--faint)}
+  .sec-title{font-size:12px;letter-spacing:1.2px;text-transform:uppercase;color:var(--faint);
+    font-weight:600;margin:18px 0 8px}
+  .sec-body{white-space:pre-wrap;line-height:1.75;font-size:14px}
+  .src-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  .src-list a{font-size:12px;background:var(--accent-soft);color:var(--navy);border-radius:999px;
+    padding:4px 10px;text-decoration:none}
+
+  .chatlog{display:flex;flex-direction:column;gap:12px;max-height:460px;overflow:auto;padding:6px 2px}
+  .msg{max-width:78%;padding:10px 14px;border-radius:12px;font-size:14px;white-space:pre-wrap;line-height:1.65}
+  .msg.user{align-self:flex-end;background:var(--navy);color:#fff;border-bottom-right-radius:4px}
+  .msg.ai{align-self:flex-start;background:var(--accent-soft);color:var(--ink);border-bottom-left-radius:4px}
+  .msg.sys{align-self:center;background:var(--bg);color:var(--faint);font-size:12px;padding:5px 10px}
+  .chatinput{display:flex;gap:10px;margin-top:12px}
+  .chatinput input{flex:1;padding:11px 14px;border:1px solid var(--line);border-radius:10px;outline:none}
+
+  #livebar{position:fixed;left:0;right:0;bottom:0;height:40px;background:#12283F;color:#C9DAEE;
+    display:flex;align-items:center;gap:12px;padding:0 18px;font-size:12.5px;z-index:30}
+  #livebar .lbl{color:#7FA6CD;flex:none}
+  #livebar .tick{flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  #livebar .st{flex:none;padding:2px 8px;border-radius:999px;background:#1F3A5F;color:#9FC2E4}
+  .evlog{max-height:340px;overflow:auto;font-family:"Cascadia Code",Consolas,monospace;font-size:12.5px}
+  .evlog .row{display:flex;gap:10px;padding:5px 0;border-bottom:1px dashed var(--line-soft)}
+  .evlog .ts{color:var(--faint);flex:none}
+  .evlog .stg{flex:none;width:66px;font-weight:600}
+  .evlog .stg.crawl{color:#2E6DA4}.evlog .stg.ingest{color:#1F7A4D}
+  .evlog .stg.embed{color:#7A4E00}.evlog .stg.report{color:#7B2E6D}
+  .evlog .stg.chat{color:#1F3A5F}.evlog .stg.system{color:#8A94A3}
+  .toast{position:fixed;right:20px;bottom:56px;display:flex;flex-direction:column;gap:8px;z-index:40}
+  .toast div{background:var(--navy);color:#fff;padding:10px 14px;border-radius:10px;font-size:13px;
+    box-shadow:var(--shadow);animation:in .2s ease}
+  @keyframes in{from{opacity:0;transform:translateY(6px)}to{opacity:1}}
+</style>
+</head>
+<body>
+
+<!-- ===================== 登录 / 注册 ===================== -->
+<div id="loginScreen">
+  <div class="authcard">
+    <div class="brand"><span class="mark">Domel</span><span class="tag">电机市场情报 AI 助手</span></div>
+    <p class="sub">多源数据聚合 · AI 定制报告 · 基于知识库的多轮问答</p>
+
+    <div class="tabs">
+      <button id="tabLogin" class="on">登录</button>
+      <button id="tabReg">注册</button>
+    </div>
+
+    <div id="loginErr" class="err" hidden></div>
+
+    <form id="loginForm">
+      <div class="field"><label>用户名</label><input id="li_user" value="demo" autocomplete="username"></div>
+      <div class="field"><label>密码</label><input id="li_pass" type="password" value="demo1234" autocomplete="current-password"></div>
+      <button class="btn" style="width:100%" type="submit">登录</button>
+      <p class="hint">首次使用可切换到「注册」；演示账号 demo / demo1234（需先运行种子脚本）。</p>
+    </form>
+
+    <form id="regForm" hidden>
+      <div class="field"><label>用户名</label><input id="rg_user" autocomplete="username"></div>
+      <div class="field"><label>邮箱</label><input id="rg_email" autocomplete="email"></div>
+      <div class="field"><label>密码（≥6 位）</label><input id="rg_pass" type="password" autocomplete="new-password"></div>
+      <div class="field"><label>我的角色</label><div class="chips" id="rg_roles"></div></div>
+      <div class="field"><label>关注的情报模块</label><div class="chips" id="rg_modules"></div></div>
+      <button class="btn" style="width:100%" type="submit">注册并进入</button>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== 主应用 ===================== -->
+<div id="appScreen" hidden>
+  <header class="topbar">
+    <div class="inner">
+      <div class="brand"><span class="mark" style="font-size:17px">Domel</span><span class="tag">市场情报 AI 助手</span></div>
+      <div class="spacer"></div>
+      <span id="brokerChip" class="badge info">管道：-</span>
+      <span id="vecChip" class="badge info">向量库：-</span>
+      <div class="userchip"><span class="avatar" id="avatar">D</span><span id="whoami">-</span></div>
+      <button class="btn ghost sm" id="btnLogout">退出</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="sidenav">
+      <button data-view="sources" class="on"><span class="dot"></span>数据源与入库</button>
+      <button data-view="reports"><span class="dot"></span>AI 情报报告</button>
+      <button data-view="chat"><span class="dot"></span>知识库对话</button>
+      <button data-view="config"><span class="dot"></span>个性化配置</button>
+      <button data-view="system"><span class="dot"></span>后端同步状态</button>
+    </nav>
+    <main id="view"></main>
+  </div>
+
+  <div id="livebar">
+    <span class="lbl">实时管道</span>
+    <span class="st" id="liveStage">idle</span>
+    <span class="tick" id="liveTick">等待事件…</span>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+ * 全局状态与基础工具
+ * ============================================================ */
+const S = { token: localStorage.getItem('domel_token') || '', user: null, meta: null,
+            view: 'sources', report: null, session: null, events: [] };
+
+const $  = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmtTime = (iso) => { try { return new Date(iso).toLocaleString('zh-CN', {hour12:false}); } catch { return iso; } };
+const SECTION_LABEL = { summary:'高亮摘要', economic:'经济分析', policy:'国家政策' };
+
+function toast(msg){
+  const d = document.createElement('div'); d.textContent = msg; $('toast').appendChild(d);
+  setTimeout(()=>d.remove(), 2600);
+}
+
+async function api(path, opts = {}){
+  const headers = Object.assign({'Content-Type':'application/json'}, opts.headers || {});
+  if (S.token) headers['Authorization'] = 'Bearer ' + S.token;
+  const res = await fetch(path, Object.assign({}, opts, {headers}));
+  if (res.status === 401) { logout(false); throw new Error('登录已失效，请重新登录'); }
+  const text = await res.text();
+  let data = null; try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+  if (!res.ok) throw new Error((data && (data.detail || data.message)) || ('请求失败 ' + res.status));
+  return data;
+}
+
+/* ============================================================
+ * 登录 / 注册
+ * ============================================================ */
+$('tabLogin').onclick = () => switchAuth(true);
+$('tabReg').onclick   = () => switchAuth(false);
+function switchAuth(isLogin){
+  $('tabLogin').classList.toggle('on', isLogin);
+  $('tabReg').classList.toggle('on', !isLogin);
+  $('loginForm').hidden = !isLogin; $('regForm').hidden = isLogin; $('loginErr').hidden = true;
+}
+
+const pick = { roles:new Set(), modules:new Set() };
+function renderChips(container, items, set, key, labelKey){
+  container.innerHTML = '';
+  items.forEach(it => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip'; b.textContent = it[labelKey];
+    b.onclick = () => { const v = it[key]; set.has(v) ? set.delete(v) : set.add(v); b.classList.toggle('on'); };
+    container.appendChild(b);
+  });
+}
+
+async function loadMeta(){
+  if (S.meta) return S.meta;
+  S.meta = await api('/api/auth/meta');
+  renderChips($('rg_roles'), S.meta.roles, pick.roles, 'role_name', 'role_name');
+  renderChips($('rg_modules'), S.meta.modules, pick.modules, 'module_code', 'module_name');
+  return S.meta;
+}
+
+$('loginForm').onsubmit = async (e) => {
+  e.preventDefault(); $('loginErr').hidden = true;
+  try {
+    const r = await api('/api/auth/login', {method:'POST', body: JSON.stringify({
+      username: $('li_user').value.trim(), password: $('li_pass').value })});
+    enterApp(r.token, r.user);
+  } catch (err) { $('loginErr').textContent = err.message; $('loginErr').hidden = false; }
+};
+
+$('regForm').onsubmit = async (e) => {
+  e.preventDefault(); $('loginErr').hidden = true;
+  try {
+    const r = await api('/api/auth/register', {method:'POST', body: JSON.stringify({
+      username: $('rg_user').value.trim(), email: $('rg_email').value.trim(), password: $('rg_pass').value,
+      role_names: [...pick.roles], module_codes: [...pick.modules] })});
+    enterApp(r.token, r.user);
+  } catch (err) { $('loginErr').textContent = err.message; $('loginErr').hidden = false; }
+};
+
+function enterApp(token, user){
+  S.token = token; S.user = user; localStorage.setItem('domel_token', token);
+  $('loginScreen').hidden = true; $('appScreen').hidden = false;
+  $('avatar').textContent = (user.username || 'U')[0].toUpperCase();
+  $('whoami').textContent = user.username + ' · ' + (user.roles[0] || '未设角色');
+  switchView('sources');
+}
+
+function logout(callApi = true){
+  if (callApi && S.token) api('/api/auth/logout', {method:'POST'}).catch(()=>{});
+  S.token = ''; S.user = null; localStorage.removeItem('domel_token');
+  $('appScreen').hidden = true; $('loginScreen').hidden = false;
+}
+
+$('btnLogout').onclick = () => logout(true);
+
+/* ============================================================
+ * 视图路由
+ * ============================================================ */
+document.querySelectorAll('.sidenav button').forEach(b => b.onclick = () => switchView(b.dataset.view));
+
+function switchView(view){
+  S.view = view;
+  document.querySelectorAll('.sidenav button').forEach(b => b.classList.toggle('on', b.dataset.view === view));
+  ({sources:viewSources, reports:viewReports, chat:viewChat, config:viewConfig, system:viewSystem}[view] || viewSources)();
+}
+
+/* ============================================================
+ * 视图：数据源与入库
+ * ============================================================ */
+async function viewSources(){
+  const v = $('view');
+  v.innerHTML = `
+    <div class="page-head"><div><h2>数据源与入库</h2>
+      <p>抓取 → 消息队列 → raw_data 入库 → 向量化，全过程真实执行</p></div>
+      <div class="spacer"></div>
+      <button class="btn sm" id="btnAll">一键抓取全部</button></div>
+
+    <div class="card">
+      <h3>新增数据源</h3>
+      <div class="grid c3">
+        <div class="field"><label>名称</label><input id="sc_name" placeholder="例：某财经站点"></div>
+        <div class="field"><label>URL</label><input id="sc_url" placeholder="http://... 或 https://..."></div>
+        <div class="field"><label>类型</label><select id="sc_type"><option value="api">API (JSON)</option><option value="crawler">爬虫 (HTML)</option></select></div>
+      </div>
+      <button class="btn sm" id="btnAdd">添加</button>
+    </div>
+
+    <div class="card">
+      <h3>数据源列表</h3>
+      <div id="srcTable">加载中…</div>
+    </div>
+
+    <div class="card">
+      <h3>最近入库的原始数据（raw_data）</h3>
+      <div id="rawList">加载中…</div>
+    </div>`;
+
+  $('btnAdd').onclick = async () => {
+    try {
+      await api('/api/sources', {method:'POST', body: JSON.stringify({
+        source_name: $('sc_name').value.trim(), url: $('sc_url').value.trim(), source_type: $('sc_type').value })});
+      toast('数据源已添加'); $('sc_name').value = ''; $('sc_url').value = ''; loadSources();
+    } catch (e) { toast(e.message); }
+  };
+  $('btnAll').onclick = async () => {
+    toast('正在抓取全部数据源…');
+    try { const rs = await api('/api/sources/trigger-all', {method:'POST'});
+      toast('投递完成，共 ' + rs.reduce((a,b)=>a+b.sent,0) + ' 条，入库中…'); setTimeout(loadSources, 1500);
+    } catch (e) { toast(e.message); }
+  };
+  loadSources();
+}
+
+async function loadSources(){
+  try {
+    const list = await api('/api/sources');
+    $('srcTable').innerHTML = list.length ? `
+      <table><thead><tr><th>ID</th><th>名称</th><th>类型</th><th>URL</th><th>状态</th><th></th></tr></thead><tbody>
+      ${list.map(s => `<tr>
+        <td class="mono">${s.source_id}</td><td>${esc(s.source_name)}</td>
+        <td><span class="badge info">${s.source_type}</span></td>
+        <td class="mono" style="color:var(--faint);max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.url)}</td>
+        <td>${s.status === 1 ? '<span class="badge ok">启用</span>' : '<span class="badge no">停用</span>'}</td>
+        <td><button class="btn ghost sm" data-trigger="${s.source_id}">抓取</button></td></tr>`).join('')}
+      </tbody></table>` : '<p style="color:var(--faint)">暂无数据源，请先运行 seed_demo.py 或在上方添加。</p>';
+    $('srcTable').querySelectorAll('[data-trigger]').forEach(b => b.onclick = async () => {
+      b.disabled = true; b.textContent = '抓取中…';
+      try { const r = await api(`/api/sources/${b.dataset.trigger}/trigger`, {method:'POST'});
+        toast(`已投递 ${r.sent} 条，等待入库`); setTimeout(loadSources, 1500);
+      } catch (e) { toast(e.message); } finally { b.disabled = false; b.textContent = '抓取'; }
+    });
+  } catch (e) { $('srcTable').innerHTML = '<p style="color:var(--err)">' + esc(e.message) + '</p>'; }
+
+  try {
+    const raws = await api('/api/sources/raw?limit=12');
+    $('rawList').innerHTML = raws.length ? '<div class="list">' + raws.map(r => `
+      <div class="item"><div class="t">${esc(r.title)}</div>
+      <div class="m">模块 #${r.module_id} · ${fmtTime(r.publish_time)} · ${esc(r.url || '')}</div></div>`).join('') + '</div>'
+      : '<p style="color:var(--faint)">暂无数据。点上方「抓取」后稍等片刻。</p>';
+  } catch (e) { $('rawList').innerHTML = ''; }
+}
+
+/* ============================================================
+ * 视图：AI 情报报告
+ * ============================================================ */
+async function viewReports(){
+  const v = $('view');
+  v.innerHTML = `
+    <div class="page-head"><div><h2>AI 情报报告</h2>
+      <p>按你的角色与订阅模块，聚合近 72 小时数据生成定制报告（真实调用大模型）</p></div>
+      <div class="spacer"></div>
+      <button class="btn sm" id="btnGen">生成新报告</button></div>
+    <div class="grid c2" style="align-items:start">
+      <div class="card"><h3>历史报告</h3><div id="rptList">加载中…</div></div>
+      <div class="card"><h3>报告详情</h3><div id="rptDetail"><p style="color:var(--faint)">选择左侧报告，或生成一份新报告。</p></div></div>
+    </div>`;
+
+  $('btnGen').onclick = async () => {
+    const btn = $('btnGen'); btn.disabled = true; btn.textContent = '生成中…（调用大模型，约 10-30s）';
+    try { const r = await api('/api/reports/generate', {method:'POST'});
+      toast('报告已生成'); renderDetail(r); loadReports();
+    } catch (e) { toast(e.message); } finally { btn.disabled = false; btn.textContent = '生成新报告'; }
+  };
+  loadReports();
+}
+
+async function loadReports(){
+  try {
+    const list = await api('/api/reports');
+    $('rptList').innerHTML = list.length ? '<div class="list">' + list.map(r => `
+      <div class="item" data-rpt="${r.report_id}" style="cursor:pointer">
+        <div class="t">${esc(r.title)}</div>
+        <div class="m">${fmtTime(r.generated_time)} · ${esc(r.status)}</div></div>`).join('') + '</div>'
+      : '<p style="color:var(--faint)">暂无报告。请先抓取数据，再点「生成新报告」。</p>';
+    $('rptList').querySelectorAll('[data-rpt]').forEach(el => el.onclick = async () => {
+      try { renderDetail(await api('/api/reports/' + el.dataset.rpt)); } catch (e) { toast(e.message); }
+    });
+  } catch (e) { $('rptList').innerHTML = '<p style="color:var(--err)">' + esc(e.message) + '</p>'; }
+}
+
+function renderDetail(r){
+  $('rptDetail').innerHTML = `
+    <div style="font-weight:700;color:var(--navy);font-size:15px">${esc(r.title)}</div>
+    <div class="m" style="color:var(--faint);font-size:12.5px;margin:4px 0 12px">${fmtTime(r.generated_time)} · ${esc(r.status)}</div>
+    ${r.sections.map(s => `<div class="sec-title">${SECTION_LABEL[s.section_type] || s.section_type}</div>
+      <div class="sec-body">${esc(s.content)}</div>`).join('')}
+    <div class="sec-title">溯源原始数据（${r.sources.length} 条）</div>
+    <div class="src-list">${r.sources.map(s => `<a href="${esc(s.url||'#')}" target="_blank">${esc(s.title || s.data_id)}</a>`).join('') || '<span style="color:var(--faint)">无</span>'}</div>`;
+}
+
+/* ============================================================
+ * 视图：知识库对话
+ * ============================================================ */
+async function viewChat(){
+  const v = $('view');
+  v.innerHTML = `
+    <div class="page-head"><div><h2>知识库对话</h2>
+      <p>基于已入库数据与生成报告的 RAG 问答，命中缓存会标注「缓存」</p></div>
+      <div class="spacer"></div>
+      <button class="btn sm" id="btnNewSess">新建会话</button></div>
+    <div class="grid c2" style="align-items:start">
+      <div class="card"><h3>会话</h3><div id="sessList">加载中…</div></div>
+      <div class="card">
+        <h3>对话</h3>
+        <div class="chatlog" id="chatlog"><div class="msg sys">选择或新建一个会话开始提问</div></div>
+        <div class="chatinput"><input id="q" placeholder="例：本季度电机原材料价格有哪些变化？" disabled>
+          <button class="btn sm" id="btnAsk" disabled>发送</button></div>
+      </div>
+    </div>`;
+
+  $('btnNewSess').onclick = async () => {
+    try { const s = await api('/api/chat/sessions', {method:'POST'}); S.session = s.session_id; loadSessions(); openSession(s.session_id); }
+    catch (e) { toast(e.message); }
+  };
+  $('btnAsk').onclick = askQuestion;
+  $('q').addEventListener('keydown', e => { if (e.key === 'Enter') askQuestion(); });
+  loadSessions();
+}
+
+async function loadSessions(){
+  try {
+    const list = await api('/api/chat/sessions');
+    $('sessList').innerHTML = list.length ? '<div class="list">' + list.map(s => `
+      <div class="item" data-sess="${s.session_id}" style="cursor:pointer">
+        <div class="t">${esc(s.title || '会话')}</div>
+        <div class="m">${fmtTime(s.last_active_at)}</div></div>`).join('') + '</div>'
+      : '<p style="color:var(--faint)">暂无会话，点「新建会话」。</p>';
+    $('sessList').querySelectorAll('[data-sess]').forEach(el => el.onclick = () => openSession(el.dataset.sess));
+  } catch (e) { $('sessList').innerHTML = '<p style="color:var(--err)">' + esc(e.message) + '</p>'; }
+}
+
+async function openSession(id){
+  S.session = id;
+  $('q').disabled = false; $('btnAsk').disabled = false;
+  const log = $('chatlog'); log.innerHTML = '';
+  try {
+    const msgs = await api(`/api/chat/sessions/${id}/messages`);
+    if (!msgs.length) log.innerHTML = '<div class="msg sys">会话已就绪，开始提问吧</div>';
+    msgs.forEach(m => addMsg(m.sender_type === 'user' ? 'user' : 'ai', m.content));
+  } catch (e) { toast(e.message); }
+}
+
+function addMsg(role, text){
+  const log = $('chatlog');
+  const d = document.createElement('div');
+  d.className = 'msg ' + role; d.textContent = text;
+  log.appendChild(d); log.scrollTop = log.scrollHeight;
+  return d;
+}
+
+async function askQuestion(){
+  const q = $('q').value.trim(); if (!q || !S.session) return;
+  $('q').value = ''; addMsg('user', q);
+  const pending = addMsg('ai', '思考中…');
+  $('btnAsk').disabled = true;
+  try {
+    const r = await api('/api/chat/ask', {method:'POST', body: JSON.stringify({session_id: S.session, question: q})});
+    pending.textContent = r.answer + (r.cached ? '\n\n（本次结果命中 Redis 缓存）' : '');
+  } catch (e) { pending.textContent = '出错了：' + e.message; }
+  finally { $('btnAsk').disabled = false; }
+}
+
+/* ============================================================
+ * 视图：个性化配置
+ * ============================================================ */
+async function viewConfig(){
+  await loadMeta();
+  const mine = await api('/api/prefs');
+  const roleSet = new Set(mine.roles), modSet = new Set(mine.modules);
+
+  const v = $('view');
+  v.innerHTML = `
+    <div class="page-head"><div><h2>个性化配置</h2><p>角色影响报告口吻，订阅模块决定聚合哪些数据</p></div></div>
+    <div class="card">
+      <h3>我的角色</h3><div class="chips" id="cfgRoles"></div>
+      <div class="sec-title">订阅的情报模块</div><div class="chips" id="cfgModules"></div>
+      <div style="margin-top:16px"><button class="btn sm" id="btnSavePrefs">保存配置</button></div>
+    </div>`;
+
+  const build = (container, items, set, key, labelKey) => {
+    container.innerHTML = '';
+    items.forEach(it => {
+      const b = document.createElement('button');
+      b.className = 'chip' + (set.has(it[key]) ? ' on' : ''); b.textContent = it[labelKey];
+      b.onclick = () => { set.has(it[key]) ? set.delete(it[key]) : set.add(it[key]); b.classList.toggle('on'); };
+      container.appendChild(b);
+    });
+  };
+  build($('cfgRoles'), S.meta.roles, roleSet, 'role_name', 'role_name');
+  build($('cfgModules'), S.meta.modules, modSet, 'module_code', 'module_name');
+
+  $('btnSavePrefs').onclick = async () => {
+    try {
+      const u = await api('/api/prefs', {method:'PUT', body: JSON.stringify({
+        role_names:[...roleSet], module_codes:[...modSet] })});
+      S.user = u; $('whoami').textContent = u.username + ' · ' + (u.roles[0] || '未设角色');
+      toast('配置已保存');
+    } catch (e) { toast(e.message); }
+  };
+}
+
+/* ============================================================
+ * 视图：后端同步状态
+ * ============================================================ */
+let statusTimer = null;
+async function viewSystem(){
+  const v = $('view');
+  v.innerHTML = `
+    <div class="page-head"><div><h2>后端同步状态</h2>
+      <p>数据库真实计数、分区、向量库与实时管道事件（数据来自后端 API，非前端伪造）</p></div></div>
+    <div class="grid c4" id="sysKpi"></div>
+    <div class="grid c2" style="align-items:start">
+      <div class="card"><h3>各表数据量</h3><div id="tblStats">加载中…</div></div>
+      <div class="card"><h3>分区与运行环境</h3><div id="sysMeta">加载中…</div></div>
+    </div>
+    <div class="card"><h3>实时管道事件（SSE 推送）</h3><div class="evlog" id="evlog"></div></div>`;
+
+  const paint = (st) => {
+    $('sysKpi').innerHTML = `
+      <div class="kpi"><div class="n">${st.postgres_ok ? '正常' : '异常'}</div><div class="l">PostgreSQL</div></div>
+      <div class="kpi"><div class="n">${st.redis_ok ? '正常' : '异常'}</div><div class="l">Redis 缓存</div></div>
+      <div class="kpi"><div class="n">${st.embedding_count}</div><div class="l">向量分块数 (${esc(st.vector_backend)})</div></div>
+      <div class="kpi"><div class="n" style="font-size:15px">${esc(st.llm_model)}</div><div class="l">对话模型 · 管道 ${esc(st.broker_backend)}</div></div>`;
+    $('tblStats').innerHTML = '<table><tbody>' + st.tables.map(t =>
+      `<tr><td class="mono">${esc(t.name)}</td><td style="text-align:right;font-weight:600">${t.count}</td></tr>`).join('') + '</tbody></table>';
+    $('sysMeta').innerHTML = `
+      <div class="m" style="color:var(--faint);font-size:12.5px;margin-bottom:8px">按时间分区（pg_inherits 实查）</div>
+      <div class="src-list">${st.partitions.map(p => `<span class="badge info">${esc(p)}</span>`).join('') || '无'}</div>
+      <div class="m" style="color:var(--faint);font-size:12.5px;margin:14px 0 6px">嵌入模型</div>
+      <span class="badge info">${esc(st.embedding_model)}</span>`;
+    paintEvents(st.recent_events);
+  };
+
+  const refresh = async () => { try { paint(await api('/api/system/status')); } catch {} };
+  await refresh();
+  clearInterval(statusTimer); statusTimer = setInterval(refresh, 4000);
+}
+
+function paintEvents(events){
+  const box = $('evlog'); if (!box) return;
+  S.events = events.slice(-60);
+  box.innerHTML = S.events.map(e => `
+    <div class="row"><span class="ts">${fmtTime(e.ts)}</span>
+    <span class="stg ${esc(e.stage)}">${esc(e.stage)}</span>
+    <span>${esc(e.message)}</span></div>`).join('');
+  box.scrollTop = box.scrollHeight;
+}
+
+/* ============================================================
+ * SSE：实时管道事件（全局，任何视图都可见）
+ * ============================================================ */
+function connectEvents(){
+  const es = new EventSource('/api/system/events');
+  es.onmessage = (m) => {
+    if (!m.data) return;
+    let e; try { e = JSON.parse(m.data); } catch { return; }
+    S.events.push(e); if (S.events.length > 200) S.events.shift();
+    $('liveStage').textContent = e.stage;
+    $('liveTick').textContent = fmtTime(e.ts) + '  ' + e.message;
+    if (S.view === 'system') paintEvents(S.events);
+  };
+  es.onerror = () => { $('liveStage').textContent = 'reconnecting'; };
+}
+
+/* ============================================================
+ * 启动
+ * ============================================================ */
+(async function boot(){
+  loadMeta().catch(()=>{});
+  connectEvents();
+  if (S.token) {
+    try { const u = await api('/api/auth/me'); enterApp(S.token, u); }
+    catch { logout(false); }
+  }
+  // 顶栏展示运行环境（公开接口，无需登录）
+  try { const st = await api('/api/system/status');
+    $('brokerChip').textContent = '管道：' + st.broker_backend;
+    $('vecChip').textContent = '向量库：' + st.vector_backend; } catch {}
+})();
+</script>
+</body>
+</html>

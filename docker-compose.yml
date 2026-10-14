@@ -1,0 +1,43 @@
+# Domel 电机市场情报 AI 助手 —— 本地演示编排（精简栈）
+# 说明：只起 PostgreSQL(含 pgvector) 与 Redis 两个容器；
+#       Kafka / Airflow 由后端进程内 Broker 与调度器替代（见 backend/app/pipeline）。
+# 启动：docker compose up -d
+# 首次启动会自动执行 db/schema.sql（建表 + 分区 + 索引 + 种子字典）。
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16          # 官方镜像已内置 pgvector 扩展
+    container_name: domel-postgres
+    environment:
+      POSTGRES_USER: domel
+      POSTGRES_PASSWORD: domel
+      POSTGRES_DB: domel
+      TZ: Asia/Shanghai
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/10_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U domel -d domel"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: domel-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  pgdata:
+  redisdata:

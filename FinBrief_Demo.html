@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FinBrief — Economic news, extracted</title>
+<style>
+  :root{
+    --navy:#1F3A5F; --accent:#2E6DA4; --accent-soft:#E8F0F9;
+    --bg:#F4F7FB; --card:#FFFFFF; --ink:#1C2430; --grey:#5A6472; --faint:#8A94A3;
+    --line:#DCE4EE; --line-soft:#EDF2F8;
+    --ok:#1F7A4D; --ok-bg:#E6F4EC;
+    --mid:#2E6DA4; --mid-bg:#E8F0F9;
+    --warn:#8A5A00; --warn-bg:#FFF4DF;
+    --shadow:0 1px 2px rgba(31,58,95,.06), 0 6px 20px rgba(31,58,95,.06);
+  }
+  *{box-sizing:border-box}
+  /* An author `display` rule beats the UA stylesheet's [hidden]{display:none},
+     so #authScreen's display:grid kept it on screen after sign-in. */
+  [hidden]{display:none !important}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--ink); min-height:100vh;
+    font-family:"Segoe UI","Microsoft YaHei",system-ui,-apple-system,Helvetica,Arial,sans-serif;
+    font-size:15px; line-height:1.55; -webkit-font-smoothing:antialiased;
+  }
+  button{font:inherit;cursor:pointer;border:none;background:none;color:inherit}
+  input,select{font:inherit;color:inherit}
+  a{color:var(--accent)}
+
+  /* ---------- demo banner ---------- */
+  #demoBar{
+    background:#FFF4DF; color:#7A4E00; border-bottom:1px solid #F0DCB4;
+    font-size:12.5px; padding:7px 20px; text-align:center; letter-spacing:.2px;
+  }
+  #demoBar b{color:#5C3B00}
+
+  /* ---------- shell ---------- */
+  .wrap{max-width:940px;margin:0 auto;padding:0 20px}
+
+  /* ---------- topbar ---------- */
+  .topbar{
+    background:var(--card); border-bottom:1px solid var(--line);
+    position:sticky; top:0; z-index:20;
+  }
+  .topbar .wrap{display:flex;align-items:center;gap:16px;height:60px}
+  .brand{display:flex;align-items:baseline;gap:9px;cursor:pointer}
+  .brand .mark{font-weight:700;font-size:19px;color:var(--navy);letter-spacing:-.3px}
+  .brand .tag{font-size:11.5px;color:var(--faint);letter-spacing:.3px}
+  .spacer{flex:1}
+  .userchip{
+    display:flex;align-items:center;gap:9px;background:var(--accent-soft);
+    border-radius:999px;padding:5px 6px 5px 6px;font-size:13px;color:var(--navy)
+  }
+  .avatar{
+    width:26px;height:26px;border-radius:50%;background:var(--navy);color:#fff;
+    display:grid;place-items:center;font-size:12px;font-weight:600
+  }
+  .ghost{
+    border:1px solid var(--line);border-radius:8px;padding:6px 12px;font-size:13px;
+    color:var(--grey);background:var(--card);transition:.15s
+  }
+  .ghost:hover{border-color:#C3D2E4;color:var(--navy)}
+
+  /* ---------- buttons ---------- */
+  .btn{
+    background:var(--navy);color:#fff;border-radius:9px;padding:11px 20px;
+    font-weight:600;font-size:14.5px;transition:.15s
+  }
+  .btn:hover{background:#16304F}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn.sm{padding:8px 15px;font-size:13.5px;border-radius:8px}
+
+  /* ---------- auth ---------- */
+  #authScreen{display:grid;place-items:center;min-height:calc(100vh - 90px);padding:36px 20px}
+  .authcard{
+    background:var(--card);border:1px solid var(--line);border-radius:16px;
+    box-shadow:var(--shadow);width:100%;max-width:430px;padding:34px 32px 28px
+  }
+  .authcard h1{margin:0 0 6px;font-size:23px;color:var(--navy);letter-spacing:-.3px}
+  .authcard p.sub{margin:0 0 24px;color:var(--grey);font-size:13.5px}
+  .tabs{display:flex;gap:6px;background:var(--bg);border-radius:10px;padding:4px;margin-bottom:22px}
+  .tabs button{flex:1;padding:9px;border-radius:7px;font-size:14px;color:var(--grey);font-weight:500;transition:.15s}
+  .tabs button.on{background:var(--card);color:var(--navy);font-weight:600;box-shadow:0 1px 3px rgba(31,58,95,.1)}
+  .field{margin-bottom:15px}
+  .field label{display:block;font-size:12.5px;color:var(--grey);margin-bottom:6px;font-weight:500}
+  .field input,.field select{
+    width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:9px;
+    background:#FCFDFF;outline:none;transition:.15s
+  }
+  .field input:focus,.field select:focus{border-color:var(--accent);background:#fff;box-shadow:0 0 0 3px rgba(46,109,164,.1)}
+  .hint{font-size:12px;color:var(--faint);margin-top:14px;line-height:1.5}
+  .err{background:#FDECEC;color:#9B2C2C;border-radius:8px;padding:9px 12px;font-size:13px;margin-bottom:14px}
+
+  /* ---------- main ---------- */
+  #appScreen{padding:30px 0 70px}
+
+  /* hero search */
+  .hero{margin-bottom:26px}
+  .hero h2{margin:0 0 5px;font-size:21px;color:var(--navy);letter-spacing:-.3px}
+  .hero p{margin:0 0 17px;color:var(--grey);font-size:14px}
+  .searchbar{display:flex;gap:10px}
+  .searchbar input{
+    flex:1;padding:14px 17px;border:1px solid var(--line);border-radius:11px;
+    background:var(--card);outline:none;font-size:15.5px;box-shadow:var(--shadow);transition:.15s
+  }
+  .searchbar input:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(46,109,164,.1)}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+  .chip{
+    background:var(--card);border:1px solid var(--line);border-radius:999px;
+    padding:6px 13px;font-size:13px;color:var(--grey);transition:.15s
+  }
+  .chip:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+
+  /* section headings */
+  .sec{margin:30px 0 12px;display:flex;align-items:center;gap:10px}
+  .sec h3{margin:0;font-size:12px;letter-spacing:1.4px;text-transform:uppercase;color:var(--faint);font-weight:600}
+  .sec .line{flex:1;height:1px;background:var(--line-soft)}
+
+  /* takeaways */
+  .takeaways{
+    background:linear-gradient(180deg,#FFFFFF 0%,#FBFDFF 100%);
+    border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden
+  }
+  .tk-head{
+    background:var(--navy);color:#fff;padding:13px 20px;font-size:14px;font-weight:600;
+    display:flex;align-items:center;gap:9px
+  }
+  .tk-head span.count{
+    margin-left:auto;font-weight:500;font-size:12.5px;opacity:.72;
+  }
+  .tk{padding:15px 20px;border-bottom:1px solid var(--line-soft);display:flex;gap:14px}
+  .tk:last-child{border-bottom:none}
+  .tk .num{
+    flex:0 0 24px;height:24px;border-radius:7px;background:var(--accent-soft);color:var(--accent);
+    display:grid;place-items:center;font-size:12.5px;font-weight:700
+  }
+  .tk .body{flex:1;min-width:0}
+  .tk .text{font-size:14.6px;line-height:1.6;margin-bottom:8px}
+  .tk .meta{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12.5px;color:var(--faint)}
+  .tk .src{color:var(--grey);font-weight:500}
+
+  /* tier badges */
+  .tier{
+    font-size:11px;font-weight:600;padding:2.5px 8px;border-radius:999px;
+    letter-spacing:.2px;white-space:nowrap
+  }
+  .tier.authoritative{background:var(--ok-bg);color:var(--ok)}
+  .tier.mainstream{background:var(--mid-bg);color:var(--mid)}
+  .tier.unverified{background:var(--warn-bg);color:var(--warn)}
+
+  /* count bar */
+  .countbar{
+    background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:14px 18px;box-shadow:var(--shadow)
+  }
+  .countbar .row1{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap}
+  .countbar .big{font-size:26px;font-weight:700;color:var(--navy);line-height:1}
+  .countbar .lbl{font-size:13.5px;color:var(--grey)}
+  .breakdown{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .bd{
+    background:var(--bg);border-radius:8px;padding:7px 12px;font-size:12.8px;color:var(--grey);
+    display:flex;align-items:center;gap:7px
+  }
+  .bd b{color:var(--navy);font-weight:600}
+  .dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+  .dot.authoritative{background:var(--ok)}
+  .dot.mainstream{background:var(--mid)}
+  .dot.unverified{background:#D9A22E}
+
+  /* filters */
+  .filters{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .filters select{
+    padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);
+    font-size:13px;color:var(--grey);outline:none
+  }
+  .filters select:focus{border-color:var(--accent)}
+
+  /* result cards */
+  .res{
+    background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:16px 18px;margin-bottom:11px;box-shadow:var(--shadow);transition:.15s
+  }
+  .res:hover{border-color:#C6D5E7;transform:translateY(-1px)}
+  .res h4{margin:0 0 6px;font-size:15.2px;color:var(--navy);font-weight:600;line-height:1.4}
+  .res p{margin:0 0 10px;font-size:13.8px;color:var(--grey)}
+  .res .meta{display:flex;flex-wrap:wrap;gap:9px;align-items:center;font-size:12.3px;color:var(--faint)}
+  .res .meta .src{color:var(--accent);font-weight:500}
+
+  /* home cards */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:700px){.grid{grid-template-columns:1fr}}
+  .panel{
+    background:var(--card);border:1px solid var(--line);border-radius:13px;
+    padding:18px 20px;box-shadow:var(--shadow)
+  }
+  .panel h4{margin:0 0 13px;font-size:13px;letter-spacing:1.1px;text-transform:uppercase;color:var(--faint)}
+  .listitem{
+    display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line-soft);
+    font-size:14px;color:var(--ink)
+  }
+  .listitem:last-child{border-bottom:none}
+  .listitem button.link{color:var(--accent);text-align:left;flex:1;font-size:14px}
+  .listitem button.link:hover{text-decoration:underline}
+  .listitem .time{font-size:12px;color:var(--faint)}
+  .empty{color:var(--faint);font-size:13.5px;padding:6px 0}
+  .star{font-size:15px;color:#D6DEE9;transition:.15s;padding:2px 4px;border-radius:6px}
+  .star.on{color:#E0A33E}
+  .star:hover{transform:scale(1.15)}
+
+  /* no results */
+  .nores{
+    background:var(--card);border:1px dashed var(--line);border-radius:13px;
+    padding:38px 24px;text-align:center;color:var(--grey)
+  }
+  .nores b{display:block;color:var(--navy);font-size:16px;margin-bottom:7px}
+
+  .foot{margin-top:44px;padding-top:18px;border-top:1px solid var(--line);color:var(--faint);font-size:12.3px;text-align:center}
+
+  /* narrow windows / split-screen: let the chrome wrap instead of overflowing */
+  @media(max-width:620px){
+    .topbar .wrap{height:auto;padding-top:10px;padding-bottom:10px;flex-wrap:wrap;gap:10px}
+    .brand .tag{display:none}
+    .searchbar{flex-wrap:wrap}
+    .searchbar input{flex:1 1 100%}
+    .searchbar .btn{width:100%}
+    .hero h2{font-size:19px}
+    .tk{padding:14px 15px;gap:11px}
+    .countbar{padding:14px 15px}
+  }
+</style>
+</head>
+<body>
+
+<div id="demoBar">
+  <b>DEMO BUILD</b> — every result below is sample content written for this prototype, not real reporting.
+  Source labels are source <i>categories</i>, not attributed outlets.
+</div>
+
+<!-- ============ AUTH ============ -->
+<div id="authScreen">
+  <div class="authcard">
+    <h1>FinBrief</h1>
+    <p class="sub">Name the economic topic. Get the few things you need to know — with the source attached.</p>
+
+    <div class="tabs">
+      <button id="tabRegister" class="on">Create account</button>
+      <button id="tabLogin">Sign in</button>
+    </div>
+
+    <div id="authErr" class="err" hidden></div>
+
+    <div class="field">
+      <label>Name</label>
+      <input id="inName" placeholder="How should we address you?" autocomplete="off">
+    </div>
+    <div class="field" id="wrapRole">
+      <label>Role</label>
+      <select id="inRole">
+        <option value="Operations manager">Operations manager</option>
+        <option value="Department head">Department head</option>
+        <option value="Business lead">Business lead</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Email</label>
+      <input id="inEmail" type="email" placeholder="you@company.com" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input id="inPass" type="password" placeholder="At least 4 characters" autocomplete="off">
+    </div>
+
+    <button class="btn" id="btnAuth" style="width:100%;margin-top:6px">Create account</button>
+    <p class="hint">
+      This prototype stores the account in your browser's local storage. There is no server and no real
+      authentication — it exists to demonstrate Feature 1.
+    </p>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="appScreen" hidden>
+  <div class="topbar">
+    <div class="wrap">
+      <div class="brand" id="brandHome">
+        <span class="mark">FinBrief</span>
+        <span class="tag">economic news, extracted</span>
+      </div>
+      <div class="spacer"></div>
+      <div class="userchip">
+        <span class="avatar" id="avatar">—</span>
+        <span id="userName">—</span>
+      </div>
+      <button class="ghost" id="btnSignOut">Sign out</button>
+    </div>
+  </div>
+
+  <div class="wrap">
+
+    <!-- HOME -->
+    <div id="homeView">
+      <div class="hero">
+        <h2 id="greet">Good to see you.</h2>
+        <p>What do you want to understand today?</p>
+        <div class="searchbar">
+          <input id="q" placeholder="e.g. new-energy vehicle subsidy policy" autocomplete="off">
+          <button class="btn" id="btnSearch">Search</button>
+        </div>
+        <div class="chips" id="chips"></div>
+      </div>
+
+      <div class="grid">
+        <div class="panel">
+          <h4>Recent searches</h4>
+          <div id="historyList"></div>
+        </div>
+        <div class="panel">
+          <h4>Following</h4>
+          <div id="followList"></div>
+        </div>
+      </div>
+
+      <div class="sec"><h3>Covered in this demo</h3><div class="line"></div></div>
+      <div id="topicCards" class="grid"></div>
+    </div>
+
+    <!-- RESULTS -->
+    <div id="resultView" hidden>
+      <div class="hero" style="margin-bottom:20px">
+        <div class="searchbar">
+          <input id="q2" placeholder="Search another topic…" autocomplete="off">
+          <button class="btn" id="btnSearch2">Search</button>
+        </div>
+      </div>
+
+      <div id="resultBody"></div>
+    </div>
+
+  </div>
+
+  <div class="wrap">
+    <div class="foot">FinBrief prototype · ENT207TC Digital Startup Lab · sample data only</div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ------------------------------------------------------------------
+   SAMPLE DATASET
+   daysAgo is relative, so dates always render as "recent" whenever
+   this file is opened. Source labels are source CATEGORIES.
+------------------------------------------------------------------ */
+var TIERS = {
+  authoritative: { label: "Authoritative", cls: "authoritative" },
+  mainstream:    { label: "Mainstream",    cls: "mainstream" },
+  unverified:    { label: "Needs checking", cls: "unverified" }
+};
+
+var TOPICS = [
+  {
+    id: "nev-subsidy",
+    title: "New-energy vehicle subsidy policy",
+    keywords: ["new energy","new-energy","nev","subsidy","subsidies","ev","electric vehicle","electric vehicles","policy","battery","charging"],
+    takeaways: [
+      { text: "Central purchase subsidies for new-energy vehicles end with the 2026 model year; support shifts to charging infrastructure and battery recycling.", src: "Ministry of Finance — official document", tier: "authoritative", daysAgo: 22 },
+      { text: "Several provinces keep local purchase subsidies of RMB 3,000–8,000 per vehicle, in most cases limited to vehicles registered inside the province.", src: "Provincial government notices (compiled)", tier: "authoritative", daysAgo: 15 },
+      { text: "Industry estimate: the phase-out lifts the average transaction price of a new-energy vehicle by roughly 4–6% through 2026.", src: "National industry association — quarterly report", tier: "mainstream", daysAgo: 9 },
+      { text: "Analyst consensus puts the impact mainly in the sub-RMB 100,000 price band; mid and premium models are expected to be largely unaffected.", src: "Broker research digest", tier: "mainstream", daysAgo: 6 },
+      { text: "Battery-recycling capacity, not charging coverage, is the binding constraint on the replacement support scheme, according to two independent assessments.", src: "Trade press (two sources, not cross-verified)", tier: "unverified", daysAgo: 3 }
+    ],
+    results: [
+      { title: "Purchase subsidy programme to close, replacement scheme published", src: "Ministry of Finance — official document", tier: "authoritative", daysAgo: 22, snip: "The full text of the replacement scheme, including eligibility and the schedule for infrastructure disbursements." },
+      { title: "Provincial subsidy notices: a consolidated table", src: "Provincial government notices (compiled)", tier: "authoritative", daysAgo: 15, snip: "Twenty-one provinces have published local schemes; caps and registration requirements differ materially." },
+      { title: "New-energy registrations, monthly release", src: "National statistics agency", tier: "authoritative", daysAgo: 12, snip: "Monthly registration volumes with a year-on-year breakdown by price band and powertrain." },
+      { title: "Charging infrastructure build-out — progress report", src: "Ministry of Finance — official document", tier: "authoritative", daysAgo: 19, snip: "Public charging points added in the period, against the annual target." },
+      { title: "Quarterly market review: price and volume", src: "National industry association — quarterly report", tier: "mainstream", daysAgo: 9, snip: "Average transaction prices rose 4.1% quarter on quarter; volume held flat." },
+      { title: "Where the subsidy cut actually bites", src: "Broker research digest", tier: "mainstream", daysAgo: 6, snip: "Segment analysis showing concentration of exposure below RMB 100,000." },
+      { title: "Dealers report pre-buy pull-forward", src: "National business daily", tier: "mainstream", daysAgo: 8, snip: "Showroom traffic and orders ahead of the cut-off, based on a survey of 40 dealerships." },
+      { title: "Battery recycling: capacity versus feedstock", src: "Major international wire service", tier: "mainstream", daysAgo: 5, snip: "Recycling capacity is being added faster than end-of-life packs arrive." },
+      { title: "Will the provinces follow the centre?", src: "National business daily", tier: "mainstream", daysAgo: 11, snip: "Local fiscal capacity is the deciding variable, officials in three provinces suggest." },
+      { title: "Charging operators on the new funding rules", src: "Trade press", tier: "unverified", daysAgo: 4, snip: "Operator comments on disbursement timing; claims not independently confirmed." },
+      { title: "A claimed inventory build-up at dealers", src: "Trade press (two sources, not cross-verified)", tier: "unverified", daysAgo: 3, snip: "Asserted channel inventory figures that no official release corroborates." }
+    ]
+  },
+  {
+    id: "labour-cost",
+    title: "Shifts in labour cost",
+    keywords: ["labour","labor","wage","wages","salary","payroll","cost","costs","hiring","headcount","employment","social insurance"],
+    takeaways: [
+      { text: "Nominal average wages rose about 5% year on year, but real growth turned negative in two consecutive quarters once consumer prices are included.", src: "National statistics agency — wage release", tier: "authoritative", daysAgo: 17 },
+      { text: "Employer social-insurance contributions now average roughly 27% of gross payroll for a mid-sized manufacturer, up from 24% five years ago.", src: "Provincial social insurance bureau", tier: "authoritative", daysAgo: 24 },
+      { text: "Two-thirds of surveyed employers say they expect to hold headcount flat through the next two quarters rather than expand.", src: "Employer survey, n≈480", tier: "mainstream", daysAgo: 10 },
+      { text: "Overtime spending is the line item most often cut first when firms trim labour cost, ahead of base salary freezes.", src: "Management consultancy briefing", tier: "mainstream", daysAgo: 7 },
+      { text: "Reported shift toward contract labour in logistics is contested; one trade body disputes the methodology behind the headline figure.", src: "Trade press (disputed)", tier: "unverified", daysAgo: 4 }
+    ],
+    results: [
+      { title: "Average wage release, quarterly", src: "National statistics agency — wage release", tier: "authoritative", daysAgo: 17, snip: "Nominal and real wage growth by sector, with the urban private-sector series broken out." },
+      { title: "Social insurance contribution rates and base, 2026", src: "Provincial social insurance bureau", tier: "authoritative", daysAgo: 24, snip: "Contribution floors, ceilings and the employer share for the current year." },
+      { title: "Employment situation summary", src: "National statistics agency", tier: "authoritative", daysAgo: 13, snip: "Surveyed unemployment by age band and by region, with the monthly path." },
+      { title: "Minimum wage adjustments, province by province", src: "Ministry of Human Resources — notice", tier: "authoritative", daysAgo: 20, snip: "Effective dates and the new hourly and monthly floors." },
+      { title: "Employer hiring intentions survey", src: "Employer survey, n≈480", tier: "mainstream", daysAgo: 10, snip: "Two-thirds of respondents plan flat headcount; a fifth plan to reduce." },
+      { title: "The overtime line is where the cuts land", src: "Management consultancy briefing", tier: "mainstream", daysAgo: 7, snip: "Order-of-operations analysis of how firms sequence labour cost reduction." },
+      { title: "Payroll costs in mid-sized manufacturing", src: "National industry association — quarterly report", tier: "mainstream", daysAgo: 14, snip: "Payroll as a share of revenue, compared across four subsectors." },
+      { title: "Recruitment cycles are getting longer", src: "National business daily", tier: "mainstream", daysAgo: 6, snip: "Time-to-hire has extended by roughly eleven days year on year." },
+      { title: "Logistics firms and contract labour: a contested count", src: "Major international wire service", tier: "mainstream", daysAgo: 9, snip: "Two estimates of the shift to contract labour differ by a factor of three." },
+      { title: "How much of the wage rise is real?", src: "Business daily — analysis", tier: "mainstream", daysAgo: 5, snip: "Deflator choices change the sign of real wage growth for two quarters." },
+      { title: "A claimed 15% contractor share in logistics", src: "Trade press (disputed)", tier: "unverified", daysAgo: 4, snip: "The figure is disputed by a trade body, which argues the sample is unrepresentative." }
+    ]
+  },
+  {
+    id: "consumer-demand",
+    title: "Consumer demand recovery",
+    keywords: ["consumer","consumption","demand","retail","sales","spending","recovery","household","tourism","confidence"],
+    takeaways: [
+      { text: "Retail sales grew 3.2% year on year in the latest month, below the 4.5% consensus expectation.", src: "National statistics agency — retail release", tier: "authoritative", daysAgo: 11 },
+      { text: "Household savings deposits continue to rise faster than disposable income, the clearest single indicator that the recovery is uneven.", src: "Central bank — financial statistics", tier: "authoritative", daysAgo: 16 },
+      { text: "Travel and dining out are outperforming; durable goods are not. The gap has widened for three consecutive quarters.", src: "Industry association — services index", tier: "mainstream", daysAgo: 8 },
+      { text: "Consumer confidence surveys remain in mildly negative territory, though the trend has flattened since spring.", src: "Consumer confidence survey", tier: "mainstream", daysAgo: 6 },
+      { text: "A widely circulated claim that pent-up demand will release in Q4 is an opinion, not a forecast with a published basis.", src: "Commentary (speculative)", tier: "unverified", daysAgo: 2 }
+    ],
+    results: [
+      { title: "Retail sales of consumer goods, monthly", src: "National statistics agency — retail release", tier: "authoritative", daysAgo: 11, snip: "Headline growth with a breakdown by category and by urban and rural split." },
+      { title: "Household deposits and disposable income, quarterly", src: "Central bank — financial statistics", tier: "authoritative", daysAgo: 16, snip: "Deposit formation outpaces income growth for a fourth quarter." },
+      { title: "Consumer price index, latest month", src: "National statistics agency", tier: "authoritative", daysAgo: 12, snip: "Headline and core CPI, with food and energy contributions separated out." },
+      { title: "Services activity index", src: "National statistics agency", tier: "authoritative", daysAgo: 14, snip: "Services expansion continues, led by transport and accommodation." },
+      { title: "Travel and dining versus durable goods", src: "Industry association — services index", tier: "mainstream", daysAgo: 8, snip: "The divergence has widened every quarter for a year." },
+      { title: "Consumer confidence survey, monthly", src: "Consumer confidence survey", tier: "mainstream", daysAgo: 6, snip: "Index remains mildly negative; the rate of decline has stopped." },
+      { title: "E-commerce share of retail, quarterly", src: "National business daily", tier: "mainstream", daysAgo: 10, snip: "Online share stabilised after two years of gains." },
+      { title: "Discount retail is the fastest-growing format", src: "National business daily", tier: "mainstream", daysAgo: 7, snip: "Value formats are taking share from mid-market banners." },
+      { title: "Why households are still saving", src: "Management consultancy briefing", tier: "mainstream", daysAgo: 5, snip: "Precautionary saving is being driven by income uncertainty, not by rates." },
+      { title: "Q4 pent-up demand: assertion or forecast?", src: "Commentary (speculative)", tier: "unverified", daysAgo: 2, snip: "A widely shared claim with no published model or evidence behind it." }
+    ]
+  },
+  {
+    id: "cross-border",
+    title: "Cross-border e-commerce regulation",
+    keywords: ["cross-border","crossborder","e-commerce","ecommerce","customs","import","export","tariff","de minimis","compliance","platform"],
+    takeaways: [
+      { text: "The de minimis exemption threshold for imported parcels falls to RMB 200, from RMB 500, effective at the start of the next quarter.", src: "Customs administration — public notice", tier: "authoritative", daysAgo: 19 },
+      { text: "Platforms become jointly liable for the declared value of goods sold through them, ending the previous seller-only liability.", src: "Customs administration — public notice", tier: "authoritative", daysAgo: 19 },
+      { text: "Sellers are shifting volume into bonded warehouses, which sidesteps the per-parcel threshold entirely.", src: "Logistics industry report", tier: "mainstream", daysAgo: 9 },
+      { text: "Compliance cost per SKU is estimated to rise 12–18%, with the burden falling hardest on sellers below RMB 50m in annual volume.", src: "Broker research digest", tier: "mainstream", daysAgo: 7 },
+      { text: "A claim that the change will halve the number of active cross-border sellers is unsourced and should not be relied on.", src: "Social post (unverified)", tier: "unverified", daysAgo: 3 }
+    ],
+    results: [
+      { title: "Public notice on the de minimis threshold", src: "Customs administration — public notice", tier: "authoritative", daysAgo: 19, snip: "The threshold changes from RMB 500 to RMB 200 per parcel, with the effective date stated." },
+      { title: "Platform liability under the amended rules", src: "Customs administration — public notice", tier: "authoritative", daysAgo: 19, snip: "Joint liability for declared value, with a transition period for existing listings." },
+      { title: "Bonded warehouse approvals, quarterly", src: "Customs administration — statistical release", tier: "authoritative", daysAgo: 21, snip: "New bonded facility approvals by region." },
+      { title: "Import parcel volumes, monthly", src: "National statistics agency", tier: "authoritative", daysAgo: 15, snip: "Parcel counts by value band, which is where the threshold change will register." },
+      { title: "Volume shifting into bonded warehouses", src: "Logistics industry report", tier: "mainstream", daysAgo: 9, snip: "Warehouse utilisation in three coastal hubs is up sharply." },
+      { title: "Compliance cost per SKU after the change", src: "Broker research digest", tier: "mainstream", daysAgo: 7, snip: "Estimated 12–18% increase, concentrated among smaller sellers." },
+      { title: "Smaller sellers face the steepest climb", src: "National business daily", tier: "mainstream", daysAgo: 8, snip: "Sellers under RMB 50m annual volume carry the highest relative cost." },
+      { title: "Platforms begin updating seller documentation", src: "Trade press", tier: "unverified", daysAgo: 5, snip: "Reported changes to onboarding flows; not confirmed by the platforms." },
+      { title: "What the new rules mean for returns", src: "National business daily", tier: "mainstream", daysAgo: 6, snip: "Return handling becomes the second-largest compliance line item." },
+      { title: "Claim: half of cross-border sellers will exit", src: "Social post (unverified)", tier: "unverified", daysAgo: 3, snip: "No source, no methodology. Treat as noise unless corroborated." }
+    ]
+  }
+];
+
+var SUGGESTED = TOPICS.map(function (t) { return t.title; });
+
+/* ------------------------------------------------------------------
+   STATE
+------------------------------------------------------------------ */
+var S = { user: null, query: "", topic: null, results: [], tier: "all", time: "all" };
+
+function ls(k, v) {
+  if (v === undefined) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }
+  try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {}
+}
+function key(name) { return "finbrief:" + (S.user ? S.user.email : "anon") + ":" + name; }
+
+function today() { var d = new Date(); d.setHours(0,0,0,0); return d; }
+function dateFromDaysAgo(n) {
+  var d = today(); d.setDate(d.getDate() - n); return d;
+}
+function fmtDate(n) {
+  var d = dateFromDaysAgo(n);
+  var m = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return d.getDate() + " " + m[d.getMonth()] + " " + d.getFullYear();
+}
+function esc(s) {
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+function initials(name) {
+  var p = String(name || "").trim().split(/\s+/);
+  if (!p[0]) return "—";
+  return (p.length > 1 ? p[0][0] + p[1][0] : p[0].slice(0,2)).toUpperCase();
+}
+
+/* ------------------------------------------------------------------
+   AUTH  (Feature 1)
+------------------------------------------------------------------ */
+var authMode = "register";
+var tabRegister = document.getElementById("tabRegister");
+var tabLogin = document.getElementById("tabLogin");
+var btnAuth = document.getElementById("btnAuth");
+var authErr = document.getElementById("authErr");
+var wrapRole = document.getElementById("wrapRole");
+
+function setAuthMode(m) {
+  authMode = m;
+  tabRegister.classList.toggle("on", m === "register");
+  tabLogin.classList.toggle("on", m === "login");
+  btnAuth.textContent = m === "register" ? "Create account" : "Sign in";
+  wrapRole.hidden = (m !== "register");
+  authErr.hidden = true;
+}
+tabRegister.onclick = function () { setAuthMode("register"); };
+tabLogin.onclick = function () { setAuthMode("login"); };
+
+function showErr(msg) { authErr.textContent = msg; authErr.hidden = false; }
+
+btnAuth.onclick = function () {
+  var name = document.getElementById("inName").value.trim();
+  var email = document.getElementById("inEmail").value.trim().toLowerCase();
+  var pass = document.getElementById("inPass").value;
+  var role = document.getElementById("inRole").value;
+
+  if (!email || email.indexOf("@") < 0) return showErr("Enter a valid email address.");
+  if (!pass || pass.length < 4) return showErr("Password needs at least 4 characters.");
+
+  var users = ls("finbrief:users") || {};
+
+  if (authMode === "register") {
+    if (!name) return showErr("Enter your name.");
+    if (users[email]) return showErr("That email is already registered — switch to Sign in.");
+    users[email] = { name: name, email: email, pass: pass, role: role, created: today().toISOString() };
+    ls("finbrief:users", users);
+    enter(users[email]);
+  } else {
+    var u = users[email];
+    if (!u) return showErr("No account found for that email — create one first.");
+    if (u.pass !== pass) return showErr("That password does not match.");
+    enter(u);
+  }
+};
+
+function enter(user) {
+  S.user = user;
+  ls("finbrief:session", user.email);
+  document.getElementById("authScreen").hidden = true;
+  document.getElementById("appScreen").hidden = false;
+  document.getElementById("avatar").textContent = initials(user.name);
+  document.getElementById("userName").textContent = user.name;
+  var h = new Date().getHours();
+  var g = h < 12 ? "Good morning" : (h < 18 ? "Good afternoon" : "Good evening");
+  document.getElementById("greet").textContent = g + ", " + user.name.split(" ")[0] + ".";
+  goHome();
+}
+
+document.getElementById("btnSignOut").onclick = function () {
+  localStorage.removeItem("finbrief:session");
+  S.user = null;
+  document.getElementById("appScreen").hidden = true;
+  document.getElementById("authScreen").hidden = false;
+  document.getElementById("inPass").value = "";
+  setAuthMode("login");
+};
+
+/* ------------------------------------------------------------------
+   HISTORY + FOLLOWING
+------------------------------------------------------------------ */
+function getHistory() { return ls(key("history")) || []; }
+function pushHistory(q) {
+  var h = getHistory().filter(function (x) { return x.q !== q; });
+  h.unshift({ q: q, at: new Date().toISOString() });
+  ls(key("history"), h.slice(0, 8));
+}
+function getFollows() { return ls(key("follows")) || []; }
+function toggleFollow(id) {
+  var f = getFollows();
+  f = f.indexOf(id) >= 0 ? f.filter(function (x) { return x !== id; }) : f.concat([id]);
+  ls(key("follows"), f);
+  renderHome();
+}
+
+/* ------------------------------------------------------------------
+   SEARCH  (Feature 2)
+------------------------------------------------------------------ */
+/* Short, common words are dropped: substring-matching a two-letter word like
+   "in" against a keyword list produces nonsense hits (e.g. "in" matching
+   "charging"). Two-letter tokens only count on an exact keyword match. */
+var STOP = {};
+["in","on","at","to","of","for","and","the","a","an","is","are","be","by","it","or","as",
+ "we","us","my","me","do","so","if","up","out","no","not","any","all","how","why","what",
+ "when","where","which","that","this","has","have","had","was","were","its","our","your"]
+ .forEach(function (w) { STOP[w] = 1; });
+
+function tokenize(qraw) {
+  return qraw.toLowerCase().split(/[\s,;/，、]+/).filter(function (t) {
+    return t.length >= 2 && !STOP[t];
+  });
+}
+
+function scoreTopic(t, tokens) {
+  var hay = (t.title + " " + t.keywords.join(" ")).toLowerCase();
+  var kw = t.keywords.map(function (k) { return k.toLowerCase(); });
+  var s = 0;
+  tokens.forEach(function (tk) {
+    if (tk.length <= 2) { if (kw.indexOf(tk) >= 0) s++; }
+    else if (hay.indexOf(tk) >= 0) s++;
+  });
+  return s;
+}
+
+function findTopic(qraw) {
+  var q = qraw.toLowerCase().trim();
+  if (!q) return null;
+  var tokens = tokenize(qraw);
+  if (!tokens.length) return null;
+  var best = null, bestScore = 0;
+  TOPICS.forEach(function (t) {
+    var s = scoreTopic(t, tokens);
+    if (t.title.toLowerCase() === q) s += 3;
+    if (s > bestScore) { bestScore = s; best = t; }
+  });
+  return best;
+}
+
+function globalScan(qraw) {
+  var tokens = tokenize(qraw).filter(function (t) { return t.length >= 3; });
+  var out = [];
+  if (!tokens.length) return out;
+  TOPICS.forEach(function (t) {
+    t.results.forEach(function (r) {
+      var hay = (r.title + " " + r.snip + " " + r.src).toLowerCase();
+      if (tokens.some(function (tk) { return hay.indexOf(tk) >= 0; })) {
+        out.push(Object.assign({}, r, { _topic: t.title, _topicId: t.id }));
+      }
+    });
+  });
+  return out;
+}
+
+function doSearch(raw) {
+  var q = raw.trim();
+  if (!q) return;
+  pushHistory(q);
+  var t = findTopic(q);
+  S.query = q;
+  S.tier = "all"; S.time = "all";
+
+  if (t) {
+    S.topic = t;
+    S.results = t.results.map(function (r) { return Object.assign({}, r, { _topic: t.title, _topicId: t.id }); });
+  } else {
+    var scan = globalScan(q);
+    S.topic = scan.length
+      ? { id: null, title: q, takeaways: [], keywords: [] }
+      : null;
+    S.results = scan;
+  }
+  showResults();
+}
+
+function filtered() {
+  var now = 0;
+  return S.results.filter(function (r) {
+    if (S.tier !== "all" && r.tier !== S.tier) return false;
+    if (S.time === "7" && r.daysAgo > 7) return false;
+    if (S.time === "30" && r.daysAgo > 30) return false;
+    return true;
+  });
+}
+
+/* ------------------------------------------------------------------
+   RENDER
+------------------------------------------------------------------ */
+function tierBadge(t) {
+  var x = TIERS[t] || TIERS.unverified;
+  return '<span class="tier ' + x.cls + '">' + x.label + '</span>';
+}
+
+function showResults() {
+  document.getElementById("homeView").hidden = true;
+  document.getElementById("resultView").hidden = false;
+  document.getElementById("q2").value = S.query;
+
+  var body = document.getElementById("resultBody");
+
+  if (!S.topic) {
+    body.innerHTML =
+      '<div class="nores"><b>Nothing found for &ldquo;' + esc(S.query) + '&rdquo;</b>' +
+      'This demo build covers four topics only. Try one of the suggestions below.</div>' +
+      '<div class="chips" style="margin-top:16px">' + SUGGESTED.map(function (t) {
+        return '<button class="chip" data-topic="' + esc(t) + '">' + esc(t) + '</button>';
+      }).join("") + '</div>';
+    bindChips(body);
+    return;
+  }
+
+  var rows = filtered();
+  var all = S.results;
+
+  var tk = "";
+  if (S.topic.takeaways && S.topic.takeaways.length) {
+    tk =
+      '<div class="takeaways"><div class="tk-head">The few things you need to know' +
+      '<span class="count">' + S.topic.takeaways.length + ' points &middot; each with its source</span></div>' +
+      S.topic.takeaways.map(function (x, i) {
+        return '<div class="tk"><div class="num">' + (i + 1) + '</div><div class="body">' +
+          '<div class="text">' + esc(x.text) + '</div>' +
+          '<div class="meta"><span class="src">' + esc(x.src) + '</span>' +
+          '<span>&middot;</span><span>' + fmtDate(x.daysAgo) + '</span>' +
+          tierBadge(x.tier) + '</div></div></div>';
+      }).join("") + '</div>';
+  }
+
+  // Feature 3 — result count, broken down
+  var nAuth = all.filter(function (r) { return r.tier === "authoritative"; }).length;
+  var nMain = all.filter(function (r) { return r.tier === "mainstream"; }).length;
+  var nUnv  = all.filter(function (r) { return r.tier === "unverified"; }).length;
+  var n7    = all.filter(function (r) { return r.daysAgo <= 7; }).length;
+  var n30   = all.filter(function (r) { return r.daysAgo <= 30; }).length;
+
+  var count =
+    '<div class="countbar">' +
+      '<div class="row1"><span class="big">' + all.length + '</span>' +
+      '<span class="lbl">results for <b>' + esc(S.topic.title) + '</b></span></div>' +
+      '<div class="breakdown">' +
+        '<span class="bd"><span class="dot authoritative"></span>Authoritative <b>' + nAuth + '</b></span>' +
+        '<span class="bd"><span class="dot mainstream"></span>Mainstream <b>' + nMain + '</b></span>' +
+        '<span class="bd"><span class="dot unverified"></span>Needs checking <b>' + nUnv + '</b></span>' +
+        '<span class="bd">Past 7 days <b>' + n7 + '</b></span>' +
+        '<span class="bd">Past 30 days <b>' + n30 + '</b></span>' +
+      '</div>' +
+      '<div class="filters">' +
+        '<select id="fTier">' +
+          '<option value="all">All source types</option>' +
+          '<option value="authoritative">Authoritative only</option>' +
+          '<option value="mainstream">Mainstream only</option>' +
+          '<option value="unverified">Needs checking only</option>' +
+        '</select>' +
+        '<select id="fTime">' +
+          '<option value="all">Any date</option>' +
+          '<option value="7">Past 7 days</option>' +
+          '<option value="30">Past 30 days</option>' +
+        '</select>' +
+      '</div>' +
+    '</div>';
+
+  var list;
+  if (!rows.length) {
+    list = '<div class="nores" style="margin-top:14px"><b>No results match those filters</b>' +
+           'Widen the source type or the date range.</div>';
+  } else {
+    list = rows.map(function (r) {
+      return '<div class="res"><h4>' + esc(r.title) + '</h4><p>' + esc(r.snip) + '</p>' +
+        '<div class="meta"><span class="src">' + esc(r.src) + '</span><span>&middot;</span>' +
+        '<span>' + fmtDate(r.daysAgo) + '</span>' + tierBadge(r.tier) + '</div></div>';
+    }).join("");
+  }
+
+  var followBtn = S.topic.id
+    ? '<button class="ghost" id="btnFollow" style="margin-left:auto">' +
+      (getFollows().indexOf(S.topic.id) >= 0 ? "★ Following this topic" : "☆ Follow this topic") + '</button>'
+    : '<span style="margin-left:auto"></span>';
+
+  // A free-text query that falls back to keyword matching has no extracted
+  // summary — say so instead of rendering an empty "Key points" heading.
+  var keySection = tk
+    ? '<div class="sec"><h3>Key points</h3><div class="line"></div>' + followBtn + '</div>' + tk
+    : '<div class="sec"><h3>Key points</h3><div class="line"></div></div>' +
+      '<div class="countbar" style="border-style:dashed"><div class="row1">' +
+      '<span class="lbl">No extracted summary for this query &mdash; nothing in the demo ' +
+      'dataset is tagged to it. These are plain keyword matches.</span></div></div>';
+
+  body.innerHTML =
+    keySection +
+    '<div class="sec"><h3>How much information there is</h3><div class="line"></div></div>' +
+    count +
+    '<div class="sec"><h3>Sources (' + rows.length + ' shown)</h3><div class="line"></div></div>' +
+    list;
+
+  var fT = document.getElementById("fTier");
+  var fI = document.getElementById("fTime");
+  fT.value = S.tier; fI.value = S.time;
+  fT.onchange = function () { S.tier = this.value; showResults(); };
+  fI.onchange = function () { S.time = this.value; showResults(); };
+  var bf = document.getElementById("btnFollow");
+  if (bf) bf.onclick = function () { toggleFollow(S.topic.id); showResults(); };
+}
+
+function goHome() {
+  document.getElementById("resultView").hidden = true;
+  document.getElementById("homeView").hidden = false;
+  document.getElementById("q").focus();
+  renderHome();
+}
+
+function renderHome() {
+  var chips = document.getElementById("chips");
+  chips.innerHTML = SUGGESTED.map(function (t) {
+    return '<button class="chip" data-topic="' + esc(t) + '">' + esc(t) + '</button>';
+  }).join("");
+  bindChips(chips);
+
+  var cards = document.getElementById("topicCards");
+  cards.innerHTML = TOPICS.map(function (t) {
+    var following = getFollows().indexOf(t.id) >= 0;
+    return '<div class="panel"><h4 style="margin-bottom:10px">' + esc(t.title) + '</h4>' +
+      '<div class="empty" style="margin-bottom:12px">' + t.results.length + ' sources &middot; ' +
+      t.takeaways.length + ' key points</div>' +
+      '<div style="display:flex;gap:8px;align-items:center">' +
+      '<button class="btn sm" data-topic="' + esc(t.title) + '">Search this</button>' +
+      '<button class="star ' + (following ? "on" : "") + '" data-follow="' + esc(t.id) + '" ' +
+      'title="Follow">' + (following ? "★" : "☆") + '</button></div></div>';
+  }).join("");
+  bindChips(cards);
+
+  cards.querySelectorAll("[data-follow]").forEach(function (b) {
+    b.onclick = function () { toggleFollow(this.getAttribute("data-follow")); };
+  });
+
+  var h = getHistory();
+  document.getElementById("historyList").innerHTML = h.length
+    ? h.map(function (x) {
+        return '<div class="listitem"><button class="link" data-topic="' + esc(x.q) + '">' +
+               esc(x.q) + '</button></div>';
+      }).join("")
+    : '<div class="empty">Nothing yet — your searches will collect here.</div>';
+  bindChips(document.getElementById("historyList"));
+
+  var f = getFollows();
+  var followed = TOPICS.filter(function (t) { return f.indexOf(t.id) >= 0; });
+  document.getElementById("followList").innerHTML = followed.length
+    ? followed.map(function (t) {
+        return '<div class="listitem"><button class="link" data-topic="' + esc(t.title) + '">' +
+               esc(t.title) + '</button><span class="time">' + t.results.length + ' sources</span></div>';
+      }).join("")
+    : '<div class="empty">Star a topic and it will appear here.</div>';
+  bindChips(document.getElementById("followList"));
+}
+
+function bindChips(root) {
+  root.querySelectorAll("[data-topic]").forEach(function (b) {
+    b.onclick = function () {
+      var t = this.getAttribute("data-topic");
+      document.getElementById("q").value = t;
+      doSearch(t);
+    };
+  });
+}
+
+/* ------------------------------------------------------------------
+   BOOT
+------------------------------------------------------------------ */
+document.getElementById("btnSearch").onclick = function () {
+  doSearch(document.getElementById("q").value);
+};
+document.getElementById("btnSearch2").onclick = function () {
+  doSearch(document.getElementById("q2").value);
+};
+document.getElementById("q").addEventListener("keydown", function (e) {
+  if (e.key === "Enter") doSearch(this.value);
+});
+document.getElementById("q2").addEventListener("keydown", function (e) {
+  if (e.key === "Enter") doSearch(this.value);
+});
+document.getElementById("brandHome").onclick = function () { if (S.user) goHome(); };
+
+(function boot() {
+  var session = ls("finbrief:session");
+  var users = ls("finbrief:users") || {};
+  if (session && users[session]) {
+    enter(users[session]);
+  } else {
+    setAuthMode("register");
+  }
+})();
+</script>
+</body>
+</html>
