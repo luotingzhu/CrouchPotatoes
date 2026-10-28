@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     embedding_model: str = "text-embedding-3-small"
     embedding_dim: int = 1536               # 必须与 pgvector vector(N) 一致
 
+    # ---------- 管理员模式（用于解锁“后端同步状态”模块） ----------
+    admin_password: str = "Ch11seburger"
+    admin_session_ttl: int = 8 * 3600       # 解锁有效期（秒）
+
     # ---------- 报告生成窗口 ----------
     report_lookback_hours: int = 24         # 每次生成报告回溯的原始数据时间窗
 

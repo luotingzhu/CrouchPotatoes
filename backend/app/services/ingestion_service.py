@@ -23,10 +23,13 @@
 """
 from __future__ import annotations
 
+import asyncio
 import logging
+import re
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
+from urllib.parse import urljoin, urlparse
 
 import httpx
 from bs4 import BeautifulSoup
@@ -45,7 +48,90 @@ from app.services.vector_store import VectorItem, get_vector_store
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
-_HTTP_HEADERS = {"User-Agent": "DomelBot/1.0 (+market-intel)"}
+# 用浏览器 UA，避免常见站点的反爬拦截（原机器人 UA 会被大量站点直接拒绝）
+_HTTP_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/122.0 Safari/537.36"
+    ),
+    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+}
+
+# 站点级抓取配置：列表页选择器 + 链接过滤 + 默认模块
+# 说明：这些站点是 JS 渲染/结构各异，通用选择器抓不到，故按域名单独配置。
+_SITE_PROFILES: dict[str, dict[str, Any]] = {
+    "finance.eastmoney.com": {
+        "list": "li > a", "href_has": "/a/", "module_id": 1,
+    },
+    "finance.sina.com.cn": {
+        "list": "li.seaio_list > a", "href_has": "sina.com.cn", "module_id": 1,
+    },
+    "www.yicai.com": {
+        "list": "div.m-con > a", "href_has": "yicai.com", "module_id": 4,
+    },
+    "finance.ifeng.com": {
+        "list": 'div[class*="hotspotsList"] > a', "href_has": "ifeng.com", "module_id": 1,
+    },
+    # ---- 国际 / 全球市场来源 ----
+    "www.cnbc.com": {
+        "list": "div.LatestNews-headlineWrapper > a", "href_has": "cnbc.com", "module_id": 4,
+    },
+    "www.zhitongcaijing.com": {
+        "list": "div.info-item-content-title > a",
+        "href_has": "zhitongcaijing.com", "module_id": 4,
+    },
+    "www.gelonghui.com": {
+        "list": "section.detail-right > a", "href_has": "gelonghui.com", "module_id": 4,
+    },
+}
+
+# 正文容器候选（按优先级），取文本最长者
+_BODY_SELECTORS = [
+    "article", ".article", ".article-content", ".content", "#content",
+    ".rich_media_content", ".post_content", ".main-content", ".text",
+    ".ArticleBody-articleBody",   # CNBC
+]
+
+# 每个数据源单次最多抓取的正文篇数（控制耗时）
+_MAX_ARTICLES_PER_SOURCE = 8
+
+_DATE_RE = re.compile(
+    r"(20\d{2})[-/年](\d{1,2})[-/月](\d{1,2})日?(?:[ T](\d{1,2}):(\d{2}))?"
+)
+_CST = timezone(timedelta(hours=8))
+
+
+def _extract_body(soup: BeautifulSoup) -> str:
+    """从文章页抽取正文：去掉导航/脚本后，取候选容器中最长的一段。"""
+    for tag in soup(["script", "style", "nav", "header", "footer", "aside", "form"]):
+        tag.decompose()
+    best = ""
+    for sel in _BODY_SELECTORS:
+        for node in soup.select(sel):
+            text = " ".join(p.get_text(" ", strip=True) for p in node.find_all("p"))
+            if not text:
+                text = node.get_text(" ", strip=True)
+            if len(text) > len(best):
+                best = text
+    if len(best) < 80:
+        best = " ".join(p.get_text(" ", strip=True) for p in soup.find_all("p"))
+    return best.strip()
+
+
+def _extract_publish_time(text: str) -> Optional[str]:
+    """从正文开头尝试解析发布时间，失败则返回 None。"""
+    match = _DATE_RE.search(text[:400])
+    if not match:
+        return None
+    year, month, day, hour, minute = match.groups()
+    try:
+        dt = datetime(
+            int(year), int(month), int(day),
+            int(hour or 0), int(minute or 0), tzinfo=_CST,
+        )
+    except ValueError:
+        return None
+    return dt.isoformat()
 
 
 class IngestionService:
@@ -92,27 +178,111 @@ class IngestionService:
         return [self._normalize(source, item) for item in items]
 
     async def _crawl(self, source: DataSource) -> list[dict[str, Any]]:
-        """爬虫数据源：拉取 HTML 并解析条目（按站点结构适配）。"""
-        async with httpx.AsyncClient(timeout=15, headers=_HTTP_HEADERS) as client:
+        """爬虫数据源：有站点配置时走「列表页 → 文章页」，否则走通用解析。"""
+        host = urlparse(source.url).netloc.lower()
+        profile = _SITE_PROFILES.get(host)
+
+        async with httpx.AsyncClient(
+            timeout=15, headers=_HTTP_HEADERS, follow_redirects=True
+        ) as client:
             resp = await client.get(source.url)
             resp.raise_for_status()
-            html = resp.text
-        soup = BeautifulSoup(html, "lxml")
+            soup = BeautifulSoup(resp.text, "lxml")
+
+            if profile:
+                links = self._extract_links(soup, source.url, profile)
+                docs = await self._fetch_articles(client, source, links, profile)
+                if docs:
+                    await bus.publish(
+                        "crawl",
+                        f"[{source.source_name}] 列表页 {len(links)} 条链接，成功抓取 {len(docs)} 篇正文",
+                        source_id=source.source_id,
+                    )
+                    return docs
+                await bus.publish(
+                    "crawl",
+                    f"[{source.source_name}] 站点配置未命中，回退通用解析",
+                    level="warn",
+                    source_id=source.source_id,
+                )
+
+        return self._parse_generic(source, soup)
+
+    def _parse_generic(self, source: DataSource, soup: BeautifulSoup) -> list[dict[str, Any]]:
+        """通用回退：适用于 article / .news-item / li.item 结构的页面。"""
         docs: list[dict[str, Any]] = []
         for node in soup.select("article, .news-item, li.item"):
             title = node.select_one("h1, h2, h3, .title")
             body = node.select_one("p, .summary, .content")
+            link = node.select_one("a[href]")
             docs.append(
                 self._normalize(
                     source,
                     {
                         "title": title.get_text(strip=True) if title else "",
                         "content": body.get_text(strip=True) if body else "",
-                        "url": source.url,
+                        "url": urljoin(source.url, link["href"]) if link else source.url,
                     },
                 )
             )
         return docs
+
+    def _extract_links(
+        self, soup: BeautifulSoup, base_url: str, profile: dict[str, Any]
+    ) -> list[tuple[str, str]]:
+        """从列表页提取 (标题, 绝对链接)，按配置过滤并去重。"""
+        links: list[tuple[str, str]] = []
+        seen: set[str] = set()
+        for a in soup.select(profile["list"]):
+            title = a.get_text(strip=True)
+            href = a.get("href") or ""
+            if len(title) < 8 or not href:
+                continue
+            href = urljoin(base_url, href)
+            if profile.get("href_has") and profile["href_has"] not in href:
+                continue
+            if href in seen:
+                continue
+            seen.add(href)
+            links.append((title, href))
+        return links[:_MAX_ARTICLES_PER_SOURCE]
+
+    async def _fetch_articles(
+        self,
+        client: httpx.AsyncClient,
+        source: DataSource,
+        links: list[tuple[str, str]],
+        profile: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        """并发抓取文章正文；正文过短（广告/跳转页）则丢弃。"""
+        sem = asyncio.Semaphore(5)
+
+        async def one(title: str, href: str) -> Optional[dict[str, Any]]:
+            async with sem:
+                try:
+                    resp = await client.get(href)
+                    if resp.status_code != 200:
+                        return None
+                    body = _extract_body(BeautifulSoup(resp.text, "lxml"))
+                    if len(body) < 120:
+                        return None
+                    return self._normalize(
+                        source,
+                        {
+                            "title": title,
+                            "content": body[:4000],
+                            "url": href,
+                            "publish_time": _extract_publish_time(body)
+                            or datetime.now(timezone.utc).isoformat(),
+                            "module_id": profile.get("module_id", 1),
+                        },
+                    )
+                except Exception:  # noqa: BLE001
+                    logger.debug("文章抓取失败: %s", href)
+                    return None
+
+        results = await asyncio.gather(*(one(t, h) for t, h in links))
+        return [r for r in results if r]
 
     def _normalize(self, source: DataSource, raw: dict[str, Any]) -> dict[str, Any]:
         """把异构原始条目归一化为统一结构。

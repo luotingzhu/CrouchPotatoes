@@ -2,13 +2,16 @@
 from __future__ import annotations
 
 import asyncio
+import hmac
 import json
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import get_current_user
+from app.core.cache import redis_client
 from app.core.config import get_settings
 from app.core.events import bus
 from app.db.models import (
@@ -22,14 +25,55 @@ from app.db.models import (
     User,
 )
 from app.db.session import get_session
-from app.schemas import SystemStatus, TableStat
+from app.schemas import AdminStatusOut, AdminUnlockIn, SystemStatus, TableStat
 
 router = APIRouter(prefix="/api/system", tags=["system"])
 settings = get_settings()
 
+_ADMIN_TTL = settings.admin_session_ttl
+
+
+def _admin_key(user_id) -> str:
+    """管理员解锁标记存放在 Redis，与用户绑定并带过期时间。"""
+    return f"admin:{user_id}"
+
+
+async def require_admin(user: User = Depends(get_current_user)) -> User:
+    """要求当前用户已解锁管理员模式。"""
+    if not await redis_client.get(_admin_key(user.user_id)):
+        raise HTTPException(403, "需要管理员模式")
+    return user
+
+
+@router.get("/admin/status", response_model=AdminStatusOut)
+async def admin_status(user: User = Depends(get_current_user)) -> AdminStatusOut:
+    return AdminStatusOut(enabled=bool(await redis_client.get(_admin_key(user.user_id))))
+
+
+@router.post("/admin/unlock", response_model=AdminStatusOut)
+async def admin_unlock(
+    payload: AdminUnlockIn, user: User = Depends(get_current_user)
+) -> AdminStatusOut:
+    # 常数时间比较，避免时序侧信道
+    if not hmac.compare_digest(payload.password, settings.admin_password):
+        raise HTTPException(403, "管理员密码错误")
+    await redis_client.set(_admin_key(user.user_id), "1", ex=_ADMIN_TTL)
+    await bus.publish("system", f"用户 {user.username} 开启了管理员模式")
+    return AdminStatusOut(enabled=True)
+
+
+@router.post("/admin/lock", response_model=AdminStatusOut)
+async def admin_lock(user: User = Depends(get_current_user)) -> AdminStatusOut:
+    await redis_client.delete(_admin_key(user.user_id))
+    await bus.publish("system", f"用户 {user.username} 关闭了管理员模式")
+    return AdminStatusOut(enabled=False)
+
 
 @router.get("/status", response_model=SystemStatus)
-async def status(session: AsyncSession = Depends(get_session)) -> SystemStatus:
+async def status(
+    session: AsyncSession = Depends(get_session),
+    _admin: User = Depends(require_admin),
+) -> SystemStatus:
     """采集数据库真实计数、分区列表、向量数、缓存与外部服务连通性。"""
     tables = [
         ("users", User),

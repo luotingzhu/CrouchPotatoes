@@ -47,15 +47,26 @@ RAG_SYSTEM_PROMPT = (
     "并在结论后用 [编号] 标注出处；资料不足时明确说明，不要编造。"
 )
 
+RAG_SYSTEM_PROMPT_EN = (
+    "You are the Domel motor market intelligence assistant. Answer strictly from the retrieved "
+    "material, cite sources with [n] markers, and state clearly when evidence is insufficient. "
+    "Never fabricate facts. Answer in English."
+)
+
 
 class RagService:
     """基于 RAG 的多轮对话。"""
 
     async def ask(
-        self, user_id: uuid.UUID, session_id: uuid.UUID, question: str
+        self,
+        user_id: uuid.UUID,
+        session_id: uuid.UUID,
+        question: str,
+        lang: str = "zh",
     ) -> dict:
-        # 1) 缓存优先
-        cache_key = self._cache_key(session_id, question)
+        lang = "en" if lang == "en" else "zh"
+        # 1) 缓存优先（缓存键包含语言，避免中英文答案串用）
+        cache_key = self._cache_key(session_id, question, lang)
         cached = await get_cached_answer(cache_key)
         if cached is not None:
             logger.debug("命中问答缓存: %s", cache_key)
@@ -79,12 +90,22 @@ class RagService:
             f"[{i + 1}] ({h.owner_type}) {h.chunk_text}" for i, h in enumerate(hits)
         )
         history_text = "\n".join(f"{t['role']}: {t['content']}" for t in history[-6:])
-        user_prompt = (
-            f"【历史对话】\n{history_text or '（无）'}\n\n"
-            f"【检索到的资料】\n{retrieved or '（无）'}\n\n"
-            f"【用户问题】\n{question}"
-        )
-        answer = await chat_complete(RAG_SYSTEM_PROMPT, user_prompt)
+        if lang == "en":
+            user_prompt = (
+                f"[Conversation history]\n{history_text or '(none)'}\n\n"
+                f"[Retrieved material]\n{retrieved or '(none)'}\n\n"
+                f"[User question]\n{question}\n\n"
+                "Answer in English only, even if the retrieved material is in Chinese."
+            )
+            system_prompt = RAG_SYSTEM_PROMPT_EN
+        else:
+            user_prompt = (
+                f"【历史对话】\n{history_text or '（无）'}\n\n"
+                f"【检索到的资料】\n{retrieved or '（无）'}\n\n"
+                f"【用户问题】\n{question}"
+            )
+            system_prompt = RAG_SYSTEM_PROMPT
+        answer = await chat_complete(system_prompt, user_prompt)
 
         # 5) 回写：落库（长期）+ Redis（短期 + 缓存）
         result = {
@@ -122,6 +143,6 @@ class RagService:
             await session.commit()
 
     @staticmethod
-    def _cache_key(session_id: uuid.UUID, question: str) -> str:
+    def _cache_key(session_id: uuid.UUID, question: str, lang: str = "zh") -> str:
         q_hash = hashlib.sha256(question.encode("utf-8")).hexdigest()[:16]
-        return f"chat:a:{session_id}:{q_hash}"
+        return f"chat:a:{session_id}:{lang}:{q_hash}"

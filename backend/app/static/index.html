@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Domel 电机市场情报 AI 助手</title>
+<title data-i18n="app.title">Domel 电机市场情报 AI 助手</title>
 <style>
   :root{
     --navy:#1F3A5F; --accent:#2E6DA4; --accent-soft:#E8F0F9;
@@ -93,6 +93,8 @@
   .badge.ok{background:var(--ok-bg);color:var(--ok)}
   .badge.no{background:var(--err-bg);color:var(--err)}
   .badge.info{background:var(--accent-soft);color:var(--navy)}
+  .warnbox{background:var(--warn-bg);color:var(--warn);border:1px solid #EFD9AE;border-radius:9px;
+    padding:9px 12px;font-size:12.5px;line-height:1.6;margin:8px 0 12px}
 
   table{width:100%;border-collapse:collapse;font-size:13.5px}
   th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line-soft)}
@@ -135,37 +137,63 @@
   .toast div{background:var(--navy);color:#fff;padding:10px 14px;border-radius:10px;font-size:13px;
     box-shadow:var(--shadow);animation:in .2s ease}
   @keyframes in{from{opacity:0;transform:translateY(6px)}to{opacity:1}}
+
+  /* ---------- 中英切换 ---------- */
+  .langswitch{display:inline-flex;align-items:center;background:var(--bg);border:1px solid var(--line);
+    border-radius:999px;padding:3px;gap:2px;flex:none}
+  .langswitch button{padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600;color:var(--grey);
+    line-height:1.2;transition:.15s}
+  .langswitch button:hover{color:var(--navy)}
+  .langswitch button.on{background:var(--card);color:var(--navy);box-shadow:0 1px 3px rgba(31,58,95,.14)}
+  #langSwitchLogin{position:fixed;top:18px;right:18px;z-index:60}
+
+  /* ---------- 管理员模式 ---------- */
+  .adminrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .switch{position:relative;display:inline-block;width:44px;height:24px;flex:none}
+  .switch input{opacity:0;width:0;height:0}
+  .switch .slider{position:absolute;inset:0;background:#C9D6E5;border-radius:999px;transition:.2s;cursor:pointer}
+  .switch .slider:before{content:"";position:absolute;width:18px;height:18px;left:3px;top:3px;
+    background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+  .switch input:checked + .slider{background:var(--accent)}
+  .switch input:checked + .slider:before{transform:translateX(20px)}
+  .adminpwd{display:flex;gap:10px}
+  .adminpwd input{flex:1;padding:9px 12px;border:1px solid var(--line);border-radius:9px;outline:none;background:#FCFDFF}
+  .adminpwd input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(46,109,164,.1)}
 </style>
 </head>
 <body>
 
 <!-- ===================== 登录 / 注册 ===================== -->
 <div id="loginScreen">
+  <div class="langswitch" id="langSwitchLogin">
+    <button type="button" data-lang="zh">CN</button>
+    <button type="button" data-lang="en">EN</button>
+  </div>
   <div class="authcard">
-    <div class="brand"><span class="mark">Domel</span><span class="tag">电机市场情报 AI 助手</span></div>
-    <p class="sub">多源数据聚合 · AI 定制报告 · 基于知识库的多轮问答</p>
+    <div class="brand"><span class="mark">Domel</span><span class="tag" data-i18n="brand.tag"></span></div>
+    <p class="sub" data-i18n="auth.subtitle"></p>
 
     <div class="tabs">
-      <button id="tabLogin" class="on">登录</button>
-      <button id="tabReg">注册</button>
+      <button id="tabLogin" class="on" data-i18n="auth.login"></button>
+      <button id="tabReg" data-i18n="auth.register"></button>
     </div>
 
     <div id="loginErr" class="err" hidden></div>
 
     <form id="loginForm">
-      <div class="field"><label>用户名</label><input id="li_user" value="demo" autocomplete="username"></div>
-      <div class="field"><label>密码</label><input id="li_pass" type="password" value="demo1234" autocomplete="current-password"></div>
-      <button class="btn" style="width:100%" type="submit">登录</button>
-      <p class="hint">首次使用可切换到「注册」；演示账号 demo / demo1234（需先运行种子脚本）。</p>
+      <div class="field"><label data-i18n="field.username"></label><input id="li_user" value="demo" autocomplete="username"></div>
+      <div class="field"><label data-i18n="field.password"></label><input id="li_pass" type="password" value="demo1234" autocomplete="current-password"></div>
+      <button class="btn" style="width:100%" type="submit" data-i18n="btn.login"></button>
+      <p class="hint" data-i18n="auth.hint"></p>
     </form>
 
     <form id="regForm" hidden>
-      <div class="field"><label>用户名</label><input id="rg_user" autocomplete="username"></div>
-      <div class="field"><label>邮箱</label><input id="rg_email" autocomplete="email"></div>
-      <div class="field"><label>密码（≥6 位）</label><input id="rg_pass" type="password" autocomplete="new-password"></div>
-      <div class="field"><label>我的角色</label><div class="chips" id="rg_roles"></div></div>
-      <div class="field"><label>关注的情报模块</label><div class="chips" id="rg_modules"></div></div>
-      <button class="btn" style="width:100%" type="submit">注册并进入</button>
+      <div class="field"><label data-i18n="field.username"></label><input id="rg_user" autocomplete="username" maxlength="64" data-i18n-ph="ph.username"></div>
+      <div class="field"><label data-i18n="field.email"></label><input id="rg_email" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false" maxlength="254" placeholder="name@example.com"></div>
+      <div class="field"><label data-i18n="field.passwordMin"></label><input id="rg_pass" type="password" autocomplete="new-password" maxlength="128"></div>
+      <div class="field"><label data-i18n="field.role"></label><div class="chips" id="rg_roles"></div></div>
+      <div class="field"><label data-i18n="field.modules"></label><div class="chips" id="rg_modules"></div></div>
+      <button class="btn" style="width:100%" type="submit" id="regSubmit" data-i18n="btn.register"></button>
     </form>
   </div>
 </div>
@@ -174,30 +202,34 @@
 <div id="appScreen" hidden>
   <header class="topbar">
     <div class="inner">
-      <div class="brand"><span class="mark" style="font-size:17px">Domel</span><span class="tag">市场情报 AI 助手</span></div>
+      <div class="brand"><span class="mark" style="font-size:17px">Domel</span><span class="tag" data-i18n="brand.tag.short"></span></div>
       <div class="spacer"></div>
-      <span id="brokerChip" class="badge info">管道：-</span>
-      <span id="vecChip" class="badge info">向量库：-</span>
+      <div class="langswitch" id="langSwitchApp">
+        <button type="button" data-lang="zh">CN</button>
+        <button type="button" data-lang="en">EN</button>
+      </div>
+      <span id="brokerChip" class="badge info"></span>
+      <span id="vecChip" class="badge info"></span>
       <div class="userchip"><span class="avatar" id="avatar">D</span><span id="whoami">-</span></div>
-      <button class="btn ghost sm" id="btnLogout">退出</button>
+      <button class="btn ghost sm" id="btnLogout" data-i18n="btn.logout"></button>
     </div>
   </header>
 
   <div class="layout">
     <nav class="sidenav">
-      <button data-view="sources" class="on"><span class="dot"></span>数据源与入库</button>
-      <button data-view="reports"><span class="dot"></span>AI 情报报告</button>
-      <button data-view="chat"><span class="dot"></span>知识库对话</button>
-      <button data-view="config"><span class="dot"></span>个性化配置</button>
-      <button data-view="system"><span class="dot"></span>后端同步状态</button>
+      <button data-view="sources" class="on"><span class="dot"></span><span data-i18n="nav.sources"></span></button>
+      <button data-view="reports"><span class="dot"></span><span data-i18n="nav.reports"></span></button>
+      <button data-view="chat"><span class="dot"></span><span data-i18n="nav.chat"></span></button>
+      <button data-view="config"><span class="dot"></span><span data-i18n="nav.config"></span></button>
+      <button data-view="system" id="navSystem" hidden><span class="dot"></span><span data-i18n="nav.system"></span></button>
     </nav>
     <main id="view"></main>
   </div>
 
   <div id="livebar">
-    <span class="lbl">实时管道</span>
+    <span class="lbl" data-i18n="live.label"></span>
     <span class="st" id="liveStage">idle</span>
-    <span class="tick" id="liveTick">等待事件…</span>
+    <span class="tick" id="liveTick" data-i18n="live.waiting"></span>
   </div>
 </div>
 
@@ -208,12 +240,385 @@
  * 全局状态与基础工具
  * ============================================================ */
 const S = { token: localStorage.getItem('domel_token') || '', user: null, meta: null,
-            view: 'sources', report: null, session: null, events: [] };
+            view: 'sources', report: null, session: null, events: [],
+            lang: localStorage.getItem('domel_lang') || 'zh',
+            admin: false,
+            runtimeBroker: '', runtimeVector: '' };
 
 const $  = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const fmtTime = (iso) => { try { return new Date(iso).toLocaleString('zh-CN', {hour12:false}); } catch { return iso; } };
-const SECTION_LABEL = { summary:'高亮摘要', economic:'经济分析', policy:'国家政策' };
+const fmtTime = (iso) => {
+  try { return new Date(iso).toLocaleString(S.lang === 'en' ? 'en-US' : 'zh-CN', {hour12:false}); }
+  catch { return iso; }
+};
+
+/* ============================================================
+ * 国际化（i18n）：中文 / 英文
+ * 说明：仅翻译界面文案；新闻正文、AI 报告、对话内容属于数据，保持原样。
+ * ============================================================ */
+const I18N = {
+  zh: {
+    'app.title': 'Domel 电机市场情报 AI 助手',
+    'brand.tag': '电机市场情报 AI 助手',
+    'brand.tag.short': '市场情报 AI 助手',
+    'auth.subtitle': '多源数据聚合 · AI 定制报告 · 基于知识库的多轮问答',
+    'auth.login': '登录',
+    'auth.register': '注册',
+    'auth.hint': '首次使用可切换到「注册」；演示账号 demo / demo1234（需先运行种子脚本）。',
+    'field.username': '用户名', 'field.password': '密码', 'field.email': '邮箱',
+    'field.passwordMin': '密码（≥6 位）', 'field.role': '我的角色', 'field.modules': '关注的情报模块',
+    'field.name': '名称', 'field.url': 'URL', 'field.type': '类型',
+    'field.role_names': '角色', 'field.module_codes': '模块',
+    'ph.username': '2-64 个字符', 'ph.sourceName': '例：某财经站点',
+    'ph.sourceUrl': 'http://... 或 https://...',
+    'ph.question': '例：本季度电机原材料价格有哪些变化？',
+    'btn.login': '登录', 'btn.register': '注册并进入', 'btn.registering': '注册中…',
+    'btn.logout': '退出', 'btn.add': '添加', 'btn.trigger': '抓取', 'btn.triggering': '抓取中…',
+    'btn.triggerAll': '一键抓取全部', 'btn.generate': '生成新报告',
+    'btn.generating': '生成中…（调用大模型，约 10-30s）',
+    'btn.newSession': '新建会话', 'btn.send': '发送', 'btn.save': '保存配置',
+    'btn.translate': '翻译为中文', 'btn.translating': '翻译中…',
+    'nav.sources': '数据源与入库', 'nav.reports': 'AI 情报报告', 'nav.chat': '知识库对话',
+    'nav.config': '个性化配置', 'nav.system': '后端同步状态',
+    'topbar.broker': '管道：', 'topbar.vector': '向量库：',
+    'live.label': '实时管道', 'live.waiting': '等待事件…', 'live.reconnecting': '重连中',
+    'sources.title': '数据源与入库',
+    'sources.subtitle': '抓取 → 消息队列 → raw_data 入库 → 向量化，全过程真实执行',
+    'sources.addTitle': '新增数据源', 'sources.listTitle': '数据源列表',
+    'sources.rawTitle': '最近入库的原始数据（raw_data）',
+    'sources.loading': '加载中…',
+    'sources.empty': '暂无数据源，请先运行 seed_demo.py 或在上方添加。',
+    'sources.rawEmpty': '暂无数据。点上方「抓取」后稍等片刻。',
+    'sources.enabled': '启用', 'sources.disabled': '停用',
+    'sources.thId': 'ID', 'sources.thName': '名称', 'sources.thType': '类型',
+    'sources.thUrl': 'URL', 'sources.thStatus': '状态',
+    'sources.moduleTag': '模块', 'sources.typeApi': 'API (JSON)', 'sources.typeCrawler': '爬虫 (HTML)',
+    'toast.sourceAdded': '数据源已添加', 'toast.triggeringAll': '正在抓取全部数据源…',
+    'toast.dispatched': '投递完成，共 {n} 条，入库中…', 'toast.sent': '已投递 {n} 条，等待入库',
+    'reports.title': 'AI 情报报告',
+    'reports.subtitle': '按你的角色与订阅模块，聚合近 72 小时数据生成定制报告（真实调用大模型）',
+    'reports.history': '历史报告', 'reports.detail': '报告详情',
+    'reports.selectHint': '选择左侧报告，或生成一份新报告。',
+    'reports.empty': '暂无报告。请先抓取数据，再点「生成新报告」。',
+    'reports.traced': '溯源原始数据（{n} 条）', 'reports.none': '无',
+    'reports.stale': '本报告仅基于过时数据生成：近 {hours} 小时无新数据，最新素材时间为 {time}。',
+    'reports.staleToast': '报告已生成（仅有旧数据）',
+    'reports.toastGenerated': '报告已生成',
+    'section.summary': '高亮摘要', 'section.economic': '经济分析', 'section.policy': '国家政策',
+    'status.generated': '已生成', 'status.failed': '失败', 'status.pending': '生成中',
+    'chat.title': '知识库对话',
+    'chat.subtitle': '基于已入库数据与生成报告的 RAG 问答，命中缓存会标注「缓存」',
+    'chat.sessions': '会话', 'chat.dialog': '对话',
+    'chat.selectHint': '选择或新建一个会话开始提问',
+    'chat.ready': '会话已就绪，开始提问吧', 'chat.thinking': '思考中…',
+    'chat.error': '出错了：', 'chat.cachedNote': '（本次结果命中 Redis 缓存）',
+    'chat.untitled': '会话', 'chat.empty': '暂无会话，点「新建会话」。',
+    'config.title': '个性化配置',
+    'config.subtitle': '角色影响报告口吻，订阅模块决定聚合哪些数据',
+    'config.myRoles': '我的角色', 'config.myModules': '订阅的情报模块',
+    'config.adminTitle': '管理员模式',
+    'config.adminHint': '开启并输入密码后，才能访问「后端同步状态」模块',
+    'config.adminOn': '已开启', 'config.adminOff': '未开启',
+    'config.adminPwdPh': '请输入管理员密码', 'config.adminNeedPwd': '请输入管理员密码',
+    'btn.unlock': '解锁', 'btn.openSystem': '打开后端同步状态',
+    'toast.adminOn': '管理员模式已开启', 'toast.adminOff': '管理员模式已关闭',
+    'toast.prefsSaved': '配置已保存', 'toast.translated': '报告已翻译', 'toast.metaFailed': '角色/模块加载失败：',
+    'roles.none': '未设角色',
+    'system.title': '后端同步状态',
+    'system.subtitle': '数据库真实计数、分区、向量库与实时管道事件（数据来自后端 API，非前端伪造）',
+    'system.tableStats': '各表数据量', 'system.partitions': '分区与运行环境',
+    'system.events': '实时管道事件（SSE 推送）',
+    'system.ok': '正常', 'system.bad': '异常', 'system.redisCache': 'Redis 缓存',
+    'system.vecChunks': '向量分块数', 'system.chatModel': '对话模型 · 管道',
+    'system.partitionHint': '按时间分区（pg_inherits 实查）', 'system.embeddingModel': '嵌入模型',
+    'system.none': '无',
+    'err.sessionExpired': '登录已失效，请重新登录',
+    'err.requestFailed': '请求失败（HTTP {n}）',
+    'val.tooShort': '长度至少 {n} 个字符', 'val.tooLong': '长度不能超过 {n} 个字符',
+    'val.required': '此项为必填', 'val.text': '必须是文本', 'val.invalid': '格式不正确',
+    'val.usernameShort': '用户名：长度至少 2 个字符',
+    'val.emailInvalid': '邮箱：格式不正确，请填写如 name@example.com',
+    'val.passwordShort': '密码：长度至少 6 个字符',
+    'val.registerFailed': '注册失败，请稍后重试'
+  },
+  en: {
+    'app.title': 'Domel Motor Market Intelligence AI',
+    'brand.tag': 'Motor Market Intelligence AI',
+    'brand.tag.short': 'Market Intelligence AI',
+    'auth.subtitle': 'Multi-source aggregation · AI-crafted reports · Knowledge-base Q&A',
+    'auth.login': 'Sign in',
+    'auth.register': 'Sign up',
+    'auth.hint': 'New here? Switch to Sign up. Demo account: demo / demo1234 (run the seed script first).',
+    'field.username': 'Username', 'field.password': 'Password', 'field.email': 'Email',
+    'field.passwordMin': 'Password (min 6 chars)', 'field.role': 'My role',
+    'field.modules': 'Modules I follow',
+    'field.name': 'Name', 'field.url': 'URL', 'field.type': 'Type',
+    'field.role_names': 'Role', 'field.module_codes': 'Module',
+    'ph.username': '2-64 characters', 'ph.sourceName': 'e.g. a finance news site',
+    'ph.sourceUrl': 'http://... or https://...',
+    'ph.question': 'e.g. How have motor raw material prices changed this quarter?',
+    'btn.login': 'Sign in', 'btn.register': 'Create account', 'btn.registering': 'Creating…',
+    'btn.logout': 'Sign out', 'btn.add': 'Add', 'btn.trigger': 'Fetch', 'btn.triggering': 'Fetching…',
+    'btn.triggerAll': 'Fetch all sources', 'btn.generate': 'Generate report',
+    'btn.generating': 'Generating… (calling LLM, ~10-30s)',
+    'btn.newSession': 'New chat', 'btn.send': 'Send', 'btn.save': 'Save settings',
+    'btn.translate': 'Translate to English', 'btn.translating': 'Translating…',
+    'nav.sources': 'Sources & Ingestion', 'nav.reports': 'AI Intelligence Reports',
+    'nav.chat': 'Knowledge Chat', 'nav.config': 'Preferences', 'nav.system': 'Backend Status',
+    'topbar.broker': 'Broker: ', 'topbar.vector': 'Vector DB: ',
+    'live.label': 'Live pipeline', 'live.waiting': 'Waiting for events…', 'live.reconnecting': 'reconnecting',
+    'sources.title': 'Sources & Ingestion',
+    'sources.subtitle': 'Fetch → message queue → raw_data ingestion → vectorization, all executed for real',
+    'sources.addTitle': 'Add data source', 'sources.listTitle': 'Data sources',
+    'sources.rawTitle': 'Recently ingested raw data (raw_data)',
+    'sources.loading': 'Loading…',
+    'sources.empty': 'No data sources yet. Run seed_demo.py or add one above.',
+    'sources.rawEmpty': 'No data yet. Click Fetch above and wait a moment.',
+    'sources.enabled': 'Enabled', 'sources.disabled': 'Disabled',
+    'sources.thId': 'ID', 'sources.thName': 'Name', 'sources.thType': 'Type',
+    'sources.thUrl': 'URL', 'sources.thStatus': 'Status',
+    'sources.moduleTag': 'Module', 'sources.typeApi': 'API (JSON)', 'sources.typeCrawler': 'Crawler (HTML)',
+    'toast.sourceAdded': 'Data source added', 'toast.triggeringAll': 'Fetching all data sources…',
+    'toast.dispatched': 'Dispatched {n} items, ingesting…', 'toast.sent': 'Dispatched {n} items, waiting for ingestion',
+    'reports.title': 'AI Intelligence Reports',
+    'reports.subtitle': 'Reports tailored to your role and modules, aggregating the last 72 hours (real LLM calls)',
+    'reports.history': 'Report history', 'reports.detail': 'Report detail',
+    'reports.selectHint': 'Select a report on the left, or generate a new one.',
+    'reports.empty': 'No reports yet. Fetch data first, then click Generate report.',
+    'reports.traced': 'Traced raw data ({n} items)', 'reports.none': 'None',
+    'reports.stale': 'This report is based on stale data only: no new data in the last {hours} hours; latest source is from {time}.',
+    'reports.staleToast': 'Report generated (stale data only)',
+    'reports.toastGenerated': 'Report generated',
+    'section.summary': 'Highlights', 'section.economic': 'Economic analysis', 'section.policy': 'Government policy',
+    'status.generated': 'generated', 'status.failed': 'failed', 'status.pending': 'pending',
+    'chat.title': 'Knowledge Chat',
+    'chat.subtitle': 'RAG Q&A over ingested data and reports; cached answers are labelled',
+    'chat.sessions': 'Chats', 'chat.dialog': 'Conversation',
+    'chat.selectHint': 'Select or create a chat to start asking',
+    'chat.ready': 'Chat is ready. Ask a question.', 'chat.thinking': 'Thinking…',
+    'chat.error': 'Error: ', 'chat.cachedNote': '(this answer was served from the Redis cache)',
+    'chat.untitled': 'Chat', 'chat.empty': 'No chats yet. Click New chat.',
+    'config.title': 'Preferences',
+    'config.subtitle': 'Role shapes the report tone; modules decide what data is aggregated',
+    'config.myRoles': 'My roles', 'config.myModules': 'Subscribed modules',
+    'config.adminTitle': 'Admin mode',
+    'config.adminHint': 'Enable and enter the password to access the Backend Status module',
+    'config.adminOn': 'Enabled', 'config.adminOff': 'Disabled',
+    'config.adminPwdPh': 'Enter admin password', 'config.adminNeedPwd': 'Please enter the admin password',
+    'btn.unlock': 'Unlock', 'btn.openSystem': 'Open Backend Status',
+    'toast.adminOn': 'Admin mode enabled', 'toast.adminOff': 'Admin mode disabled',
+    'toast.prefsSaved': 'Preferences saved', 'toast.translated': 'Report translated', 'toast.metaFailed': 'Failed to load roles/modules: ',
+    'roles.none': 'No role',
+    'system.title': 'Backend Status',
+    'system.subtitle': 'Real database counts, partitions, vector store and live pipeline events (from backend APIs)',
+    'system.tableStats': 'Table row counts', 'system.partitions': 'Partitions & runtime',
+    'system.events': 'Live pipeline events (SSE)',
+    'system.ok': 'OK', 'system.bad': 'Down', 'system.redisCache': 'Redis cache',
+    'system.vecChunks': 'Vector chunks', 'system.chatModel': 'Chat model · broker',
+    'system.partitionHint': 'Time-based partitions (queried from pg_inherits)',
+    'system.embeddingModel': 'Embedding model', 'system.none': 'None',
+    'err.sessionExpired': 'Session expired, please sign in again',
+    'err.requestFailed': 'Request failed (HTTP {n})',
+    'val.tooShort': 'must be at least {n} characters', 'val.tooLong': 'must be at most {n} characters',
+    'val.required': 'this field is required', 'val.text': 'must be text', 'val.invalid': 'invalid format',
+    'val.usernameShort': 'Username: at least 2 characters',
+    'val.emailInvalid': 'Email: invalid format, e.g. name@example.com',
+    'val.passwordShort': 'Password: at least 6 characters',
+    'val.registerFailed': 'Registration failed, please try again'
+  }
+};
+
+// 后端返回的中文提示（HTTPException detail）在英文模式下的对照表
+const BACKEND_MSG_EN = {
+  '用户名或邮箱已存在': 'Username or email already exists',
+  '用户名或密码错误': 'Invalid username or password',
+  '登录已失效，请重新登录': 'Session expired, please sign in again',
+  '缺少访问令牌': 'Missing access token',
+  '用户不存在': 'User not found',
+  '会话不存在': 'Chat not found',
+  '报告不存在': 'Report not found',
+  '数据源不存在': 'Data source not found',
+  '尚未订阅任何情报模块，请先在「个性化配置」中选择模块': 'No modules subscribed. Select modules in Preferences first.',
+  '你订阅的模块暂无任何数据，请先在「数据源与入库」中抓取数据': 'No data for your subscribed modules. Fetch data in Sources & Ingestion first.',
+  '报告生成失败，请稍后重试': 'Report generation failed, please try again.',
+  '管理员密码错误': 'Incorrect admin password',
+  '需要管理员模式': 'Admin mode required',
+  '邮箱格式不正确，请填写如 name@example.com': 'Invalid email format, e.g. name@example.com'
+};
+
+const ROLE_LABEL = {
+  Manager: { zh: '管理者', en: 'Manager' },
+  Sales:   { zh: '销售',   en: 'Sales' },
+  Tech:    { zh: '技术',   en: 'Tech' }
+};
+const MODULE_LABEL = {
+  news:     { zh: '新闻',     en: 'News' },
+  politics: { zh: '政治',     en: 'Politics' },
+  business: { zh: '商业统计', en: 'Business Stats' },
+  finance:  { zh: '金融',     en: 'Finance' }
+};
+
+function t(key, vars){
+  const dict = I18N[S.lang] || I18N.zh;
+  let str = dict[key];
+  if (str === undefined) str = I18N.zh[key] !== undefined ? I18N.zh[key] : key;
+  if (vars) {
+    for (const k in vars) str = str.replace(new RegExp('\\{' + k + '\\}', 'g'), vars[k]);
+  }
+  return str;
+}
+
+function roleLabel(name){ return (ROLE_LABEL[name] || {})[S.lang] || name; }
+function moduleLabel(item){ return (MODULE_LABEL[item.module_code] || {})[S.lang] || item.module_name; }
+function fieldLabel(field){
+  const key = 'field.' + field;
+  const label = t(key);
+  return label === key ? field : label;
+}
+function sectionLabel(type){
+  const key = 'section.' + type;
+  const label = t(key);
+  return label === key ? type : label;
+}
+function statusLabel(status){
+  const key = 'status.' + status;
+  const label = t(key);
+  return label === key ? status : label;
+}
+
+/* 应用静态文案（data-i18n / data-i18n-ph） */
+function applyStaticI18n(){
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => { el.placeholder = t(el.dataset.i18nPh); });
+
+  const tick = $('liveTick');
+  if (tick) {
+    if (S.events.length) {
+      const last = S.events[S.events.length - 1];
+      tick.textContent = fmtTime(last.ts) + '  ' + last.message;
+    } else {
+      tick.textContent = t('live.waiting');
+    }
+  }
+}
+
+function updateTopbarChips(){
+  if ($('brokerChip')) $('brokerChip').textContent = t('topbar.broker') + (S.runtimeBroker || '-');
+  if ($('vecChip')) $('vecChip').textContent = t('topbar.vector') + (S.runtimeVector || '-');
+}
+
+function updateUserChip(){
+  if (!S.user) return;
+  const name = S.user.username || 'U';
+  if ($('avatar')) $('avatar').textContent = name[0].toUpperCase();
+  if ($('whoami')) {
+    const role = S.user.roles && S.user.roles[0] ? roleLabel(S.user.roles[0]) : t('roles.none');
+    $('whoami').textContent = name + ' · ' + role;
+  }
+}
+
+/* 管理员模式：控制「后端同步状态」入口的可见性与访问权限 */
+function applyAdminUI(){
+  const nav = $('navSystem');
+  if (nav) nav.hidden = !S.admin;
+  if (!S.admin && S.view === 'system') switchView('sources');
+}
+
+async function refreshAdmin(){
+  if (!S.token) { S.admin = false; applyAdminUI(); return; }
+  try {
+    const r = await api('/api/system/admin/status');
+    S.admin = !!r.enabled;
+  } catch {
+    S.admin = false;
+  }
+  applyAdminUI();
+}
+
+/* 切换语言：更新静态文案 + 重新渲染当前视图，并保留报告/会话上下文 */
+function setLang(lang){
+  S.lang = lang === 'en' ? 'en' : 'zh';
+  localStorage.setItem('domel_lang', S.lang);
+  document.documentElement.lang = S.lang === 'en' ? 'en' : 'zh-CN';
+  document.title = t('app.title');
+
+  document.querySelectorAll('.langswitch button')
+    .forEach(b => b.classList.toggle('on', b.dataset.lang === S.lang));
+
+  applyStaticI18n();
+  updateTopbarChips();
+  updateUserChip();
+
+  // 登录页的角色/模块 chips 需要在语言切换后重绘
+  if (S.meta && $('rg_roles')) {
+    renderChips($('rg_roles'), S.meta.roles, pick.roles, 'role_name', it => roleLabel(it.role_name));
+    renderChips($('rg_modules'), S.meta.modules, pick.modules, 'module_code', it => moduleLabel(it));
+  }
+
+  if (S.user) {
+    const keepSession = S.session, keepReport = S.report;
+    switchView(S.view);
+    if (S.view === 'chat' && keepSession) openSession(keepSession);
+    if (S.view === 'reports' && keepReport) renderDetail(keepReport);
+  }
+}
+
+/* ---------- 错误信息格式化 ----------
+ * FastAPI 的校验失败(422)返回 detail 为对象数组，直接拼进 Error 会显示 [object Object]。
+ * 这里统一把 string / array / object 三种形态转成可读中文。
+ */
+// 与后端保持一致的邮箱规则（前端预校验，后端仍会再校验一次）
+const EMAIL_RE = /^(?=.{6,254}$)(?=.{1,64}@)[A-Za-z0-9!#$%&'*+\/=?^_`{|}~.-]+@(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$/;
+function isValidEmail(v){
+  v = String(v || '').trim();
+  if (!EMAIL_RE.test(v)) return false;
+  const local = v.split('@')[0];
+  return !(local.startsWith('.') || local.endsWith('.') || local.includes('..'));
+}
+
+function pydanticMsg(d){
+  const type = d.type || '', ctx = d.ctx || {};
+  switch (type){
+    case 'string_too_short': return t('val.tooShort', {n: ctx.min_length});
+    case 'string_too_long':  return t('val.tooLong', {n: ctx.max_length});
+    case 'missing':          return t('val.required');
+    case 'string_type':      return t('val.text');
+    case 'value_error': {
+      const raw = String(d.msg || '').replace(/^Value error,\s*/, '');
+      return S.lang === 'en' ? (BACKEND_MSG_EN[raw] || raw) : raw;
+    }
+    default:                 return d.msg || t('val.invalid');
+  }
+}
+
+function formatApiError(data, status){
+  const detail = data && data.detail;
+  // 1) 后端主动抛的 HTTPException：detail 是字符串
+  if (typeof detail === 'string' && detail) {
+    return S.lang === 'en' ? (BACKEND_MSG_EN[detail] || detail) : detail;
+  }
+  // 2) 校验错误：detail 是 [{loc, msg, type}, ...]
+  if (Array.isArray(detail)) {
+    const parts = detail.map(d => {
+      const loc = Array.isArray(d.loc) ? d.loc.filter(x => x !== 'body') : [];
+      const field = loc.length ? loc[loc.length - 1] : '';
+      const label = field ? fieldLabel(field) : '';
+      const msg = pydanticMsg(d);
+      // 若后端消息已自带字段名（如「邮箱格式不正确」），不再重复加前缀
+      if (!label || msg.startsWith(label)) return msg;
+      return `${label}：${msg}`;
+    });
+    if (parts.length) return parts.join('；');
+  }
+  // 3) detail 是对象
+  if (detail && typeof detail === 'object') {
+    return detail.message || detail.msg || JSON.stringify(detail);
+  }
+  // 4) 纯文本响应 / 兜底
+  if (typeof data === 'string' && data.trim()) return data;
+  if (data && typeof data.message === 'string') return data.message;
+  return t('err.requestFailed', {n: status});
+}
 
 function toast(msg){
   const d = document.createElement('div'); d.textContent = msg; $('toast').appendChild(d);
@@ -224,10 +629,18 @@ async function api(path, opts = {}){
   const headers = Object.assign({'Content-Type':'application/json'}, opts.headers || {});
   if (S.token) headers['Authorization'] = 'Bearer ' + S.token;
   const res = await fetch(path, Object.assign({}, opts, {headers}));
-  if (res.status === 401) { logout(false); throw new Error('登录已失效，请重新登录'); }
+
+  // 仅在「已登录状态下」收到 401 才视为会话失效；
+  // 登录接口密码错误也返回 401，此时应展示后端给的「用户名或密码错误」。
+  if (res.status === 401 && S.token) { logout(false); throw new Error(t('err.sessionExpired')); }
+
   const text = await res.text();
   let data = null; try { data = text ? JSON.parse(text) : null; } catch { data = text; }
-  if (!res.ok) throw new Error((data && (data.detail || data.message)) || ('请求失败 ' + res.status));
+  if (!res.ok) {
+    const err = new Error(formatApiError(data, res.status));
+    err.status = res.status;      // 便于调用方区分 401/403
+    throw err;
+  }
   return data;
 }
 
@@ -240,14 +653,19 @@ function switchAuth(isLogin){
   $('tabLogin').classList.toggle('on', isLogin);
   $('tabReg').classList.toggle('on', !isLogin);
   $('loginForm').hidden = !isLogin; $('regForm').hidden = isLogin; $('loginErr').hidden = true;
+  // 注册页依赖角色/模块字典；若启动时加载失败，切到注册页时补一次
+  if (!isLogin && !S.meta) {
+    loadMeta().catch(err => toast(t('toast.metaFailed') + err.message));
+  }
 }
 
 const pick = { roles:new Set(), modules:new Set() };
-function renderChips(container, items, set, key, labelKey){
+function renderChips(container, items, set, key, labelFn){
   container.innerHTML = '';
   items.forEach(it => {
     const b = document.createElement('button');
-    b.type = 'button'; b.className = 'chip'; b.textContent = it[labelKey];
+    b.type = 'button'; b.className = 'chip' + (set.has(it[key]) ? ' on' : '');
+    b.textContent = labelFn(it);
     b.onclick = () => { const v = it[key]; set.has(v) ? set.delete(v) : set.add(v); b.classList.toggle('on'); };
     container.appendChild(b);
   });
@@ -256,8 +674,8 @@ function renderChips(container, items, set, key, labelKey){
 async function loadMeta(){
   if (S.meta) return S.meta;
   S.meta = await api('/api/auth/meta');
-  renderChips($('rg_roles'), S.meta.roles, pick.roles, 'role_name', 'role_name');
-  renderChips($('rg_modules'), S.meta.modules, pick.modules, 'module_code', 'module_name');
+  renderChips($('rg_roles'), S.meta.roles, pick.roles, 'role_name', it => roleLabel(it.role_name));
+  renderChips($('rg_modules'), S.meta.modules, pick.modules, 'module_code', it => moduleLabel(it));
   return S.meta;
 }
 
@@ -271,26 +689,50 @@ $('loginForm').onsubmit = async (e) => {
 };
 
 $('regForm').onsubmit = async (e) => {
-  e.preventDefault(); $('loginErr').hidden = true;
+  e.preventDefault();
+  const errBox = $('loginErr');
+  errBox.hidden = true;
+
+  const username = $('rg_user').value.trim();
+  const email = $('rg_email').value.trim();
+  const password = $('rg_pass').value;
+
+  // 客户端预校验：给出即时、明确的中文提示，避免明显不合法的请求打到后端
+  let msg = '';
+  if (username.length < 2) msg = t('val.usernameShort');
+  else if (!isValidEmail(email)) msg = t('val.emailInvalid');
+  else if (password.length < 6) msg = t('val.passwordShort');
+  if (msg) { errBox.textContent = msg; errBox.hidden = false; return; }
+
+  // 防重复提交：连点会导致第二个请求 409（用户名/邮箱已存在）
+  const btn = $('regSubmit');
+  btn.disabled = true; btn.textContent = t('btn.registering');
   try {
     const r = await api('/api/auth/register', {method:'POST', body: JSON.stringify({
-      username: $('rg_user').value.trim(), email: $('rg_email').value.trim(), password: $('rg_pass').value,
+      username, email, password,
       role_names: [...pick.roles], module_codes: [...pick.modules] })});
     enterApp(r.token, r.user);
-  } catch (err) { $('loginErr').textContent = err.message; $('loginErr').hidden = false; }
+  } catch (err) {
+    errBox.textContent = err.message || t('val.registerFailed');
+    errBox.hidden = false;
+  } finally {
+    btn.disabled = false; btn.textContent = t('btn.register');
+  }
 };
 
 function enterApp(token, user){
   S.token = token; S.user = user; localStorage.setItem('domel_token', token);
   $('loginScreen').hidden = true; $('appScreen').hidden = false;
-  $('avatar').textContent = (user.username || 'U')[0].toUpperCase();
-  $('whoami').textContent = user.username + ' · ' + (user.roles[0] || '未设角色');
+  updateUserChip();
+  refreshAdmin();          // 恢复管理员解锁状态（标记存于 Redis，带过期时间）
   switchView('sources');
 }
 
 function logout(callApi = true){
   if (callApi && S.token) api('/api/auth/logout', {method:'POST'}).catch(()=>{});
-  S.token = ''; S.user = null; localStorage.removeItem('domel_token');
+  S.token = ''; S.user = null; S.admin = false; localStorage.removeItem('domel_token');
+  S.view = 'sources';
+  applyAdminUI();
   $('appScreen').hidden = true; $('loginScreen').hidden = false;
 }
 
@@ -300,8 +742,13 @@ $('btnLogout').onclick = () => logout(true);
  * 视图路由
  * ============================================================ */
 document.querySelectorAll('.sidenav button').forEach(b => b.onclick = () => switchView(b.dataset.view));
+// 中英切换按钮（登录页与顶栏各一组）
+document.querySelectorAll('[data-lang]').forEach(b => b.onclick = () => setLang(b.dataset.lang));
 
 function switchView(view){
+  if (view === 'system' && !S.admin) view = 'sources';   // 未解锁管理员模式禁止进入
+  // 离开系统状态页时停止轮询，避免后台继续请求
+  if (view !== 'system' && statusTimer) { clearInterval(statusTimer); statusTimer = null; }
   S.view = view;
   document.querySelectorAll('.sidenav button').forEach(b => b.classList.toggle('on', b.dataset.view === view));
   ({sources:viewSources, reports:viewReports, chat:viewChat, config:viewConfig, system:viewSystem}[view] || viewSources)();
@@ -313,42 +760,42 @@ function switchView(view){
 async function viewSources(){
   const v = $('view');
   v.innerHTML = `
-    <div class="page-head"><div><h2>数据源与入库</h2>
-      <p>抓取 → 消息队列 → raw_data 入库 → 向量化，全过程真实执行</p></div>
+    <div class="page-head"><div><h2>${t('sources.title')}</h2>
+      <p>${t('sources.subtitle')}</p></div>
       <div class="spacer"></div>
-      <button class="btn sm" id="btnAll">一键抓取全部</button></div>
+      <button class="btn sm" id="btnAll">${t('btn.triggerAll')}</button></div>
 
     <div class="card">
-      <h3>新增数据源</h3>
+      <h3>${t('sources.addTitle')}</h3>
       <div class="grid c3">
-        <div class="field"><label>名称</label><input id="sc_name" placeholder="例：某财经站点"></div>
-        <div class="field"><label>URL</label><input id="sc_url" placeholder="http://... 或 https://..."></div>
-        <div class="field"><label>类型</label><select id="sc_type"><option value="api">API (JSON)</option><option value="crawler">爬虫 (HTML)</option></select></div>
+        <div class="field"><label>${t('field.name')}</label><input id="sc_name" placeholder="${t('ph.sourceName')}"></div>
+        <div class="field"><label>${t('field.url')}</label><input id="sc_url" placeholder="${t('ph.sourceUrl')}"></div>
+        <div class="field"><label>${t('field.type')}</label><select id="sc_type"><option value="api">${t('sources.typeApi')}</option><option value="crawler">${t('sources.typeCrawler')}</option></select></div>
       </div>
-      <button class="btn sm" id="btnAdd">添加</button>
+      <button class="btn sm" id="btnAdd">${t('btn.add')}</button>
     </div>
 
     <div class="card">
-      <h3>数据源列表</h3>
-      <div id="srcTable">加载中…</div>
+      <h3>${t('sources.listTitle')}</h3>
+      <div id="srcTable">${t('sources.loading')}</div>
     </div>
 
     <div class="card">
-      <h3>最近入库的原始数据（raw_data）</h3>
-      <div id="rawList">加载中…</div>
+      <h3>${t('sources.rawTitle')}</h3>
+      <div id="rawList">${t('sources.loading')}</div>
     </div>`;
 
   $('btnAdd').onclick = async () => {
     try {
       await api('/api/sources', {method:'POST', body: JSON.stringify({
         source_name: $('sc_name').value.trim(), url: $('sc_url').value.trim(), source_type: $('sc_type').value })});
-      toast('数据源已添加'); $('sc_name').value = ''; $('sc_url').value = ''; loadSources();
+      toast(t('toast.sourceAdded')); $('sc_name').value = ''; $('sc_url').value = ''; loadSources();
     } catch (e) { toast(e.message); }
   };
   $('btnAll').onclick = async () => {
-    toast('正在抓取全部数据源…');
+    toast(t('toast.triggeringAll'));
     try { const rs = await api('/api/sources/trigger-all', {method:'POST'});
-      toast('投递完成，共 ' + rs.reduce((a,b)=>a+b.sent,0) + ' 条，入库中…'); setTimeout(loadSources, 1500);
+      toast(t('toast.dispatched', {n: rs.reduce((a,b)=>a+b.sent,0)})); setTimeout(loadSources, 1500);
     } catch (e) { toast(e.message); }
   };
   loadSources();
@@ -358,19 +805,19 @@ async function loadSources(){
   try {
     const list = await api('/api/sources');
     $('srcTable').innerHTML = list.length ? `
-      <table><thead><tr><th>ID</th><th>名称</th><th>类型</th><th>URL</th><th>状态</th><th></th></tr></thead><tbody>
+      <table><thead><tr><th>${t('sources.thId')}</th><th>${t('sources.thName')}</th><th>${t('sources.thType')}</th><th>${t('sources.thUrl')}</th><th>${t('sources.thStatus')}</th><th></th></tr></thead><tbody>
       ${list.map(s => `<tr>
         <td class="mono">${s.source_id}</td><td>${esc(s.source_name)}</td>
         <td><span class="badge info">${s.source_type}</span></td>
         <td class="mono" style="color:var(--faint);max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.url)}</td>
-        <td>${s.status === 1 ? '<span class="badge ok">启用</span>' : '<span class="badge no">停用</span>'}</td>
-        <td><button class="btn ghost sm" data-trigger="${s.source_id}">抓取</button></td></tr>`).join('')}
-      </tbody></table>` : '<p style="color:var(--faint)">暂无数据源，请先运行 seed_demo.py 或在上方添加。</p>';
+        <td>${s.status === 1 ? `<span class="badge ok">${t('sources.enabled')}</span>` : `<span class="badge no">${t('sources.disabled')}</span>`}</td>
+        <td><button class="btn ghost sm" data-trigger="${s.source_id}">${t('btn.trigger')}</button></td></tr>`).join('')}
+      </tbody></table>` : `<p style="color:var(--faint)">${t('sources.empty')}</p>`;
     $('srcTable').querySelectorAll('[data-trigger]').forEach(b => b.onclick = async () => {
-      b.disabled = true; b.textContent = '抓取中…';
+      b.disabled = true; b.textContent = t('btn.triggering');
       try { const r = await api(`/api/sources/${b.dataset.trigger}/trigger`, {method:'POST'});
-        toast(`已投递 ${r.sent} 条，等待入库`); setTimeout(loadSources, 1500);
-      } catch (e) { toast(e.message); } finally { b.disabled = false; b.textContent = '抓取'; }
+        toast(t('toast.sent', {n: r.sent})); setTimeout(loadSources, 1500);
+      } catch (e) { toast(e.message); } finally { b.disabled = false; b.textContent = t('btn.trigger'); }
     });
   } catch (e) { $('srcTable').innerHTML = '<p style="color:var(--err)">' + esc(e.message) + '</p>'; }
 
@@ -378,8 +825,8 @@ async function loadSources(){
     const raws = await api('/api/sources/raw?limit=12');
     $('rawList').innerHTML = raws.length ? '<div class="list">' + raws.map(r => `
       <div class="item"><div class="t">${esc(r.title)}</div>
-      <div class="m">模块 #${r.module_id} · ${fmtTime(r.publish_time)} · ${esc(r.url || '')}</div></div>`).join('') + '</div>'
-      : '<p style="color:var(--faint)">暂无数据。点上方「抓取」后稍等片刻。</p>';
+      <div class="m">${t('sources.moduleTag')} #${r.module_id} · ${fmtTime(r.publish_time)} · ${esc(r.url || '')}</div></div>`).join('') + '</div>'
+      : `<p style="color:var(--faint)">${t('sources.rawEmpty')}</p>`;
   } catch (e) { $('rawList').innerHTML = ''; }
 }
 
@@ -389,21 +836,22 @@ async function loadSources(){
 async function viewReports(){
   const v = $('view');
   v.innerHTML = `
-    <div class="page-head"><div><h2>AI 情报报告</h2>
-      <p>按你的角色与订阅模块，聚合近 72 小时数据生成定制报告（真实调用大模型）</p></div>
+    <div class="page-head"><div><h2>${t('reports.title')}</h2>
+      <p>${t('reports.subtitle')}</p></div>
       <div class="spacer"></div>
-      <button class="btn sm" id="btnGen">生成新报告</button></div>
+      <button class="btn sm" id="btnGen">${t('btn.generate')}</button></div>
     <div class="grid c2" style="align-items:start">
-      <div class="card"><h3>历史报告</h3><div id="rptList">加载中…</div></div>
-      <div class="card"><h3>报告详情</h3><div id="rptDetail"><p style="color:var(--faint)">选择左侧报告，或生成一份新报告。</p></div></div>
+      <div class="card"><h3>${t('reports.history')}</h3><div id="rptList">${t('sources.loading')}</div></div>
+      <div class="card"><h3>${t('reports.detail')}</h3><div id="rptDetail"><p style="color:var(--faint)">${t('reports.selectHint')}</p></div></div>
     </div>`;
 
   $('btnGen').onclick = async () => {
-    const btn = $('btnGen'); btn.disabled = true; btn.textContent = '生成中…（调用大模型，约 10-30s）';
-    try { const r = await api('/api/reports/generate', {method:'POST'});
-      toast('报告已生成'); renderDetail(r); loadReports();
-    } catch (e) { toast(e.message); } finally { btn.disabled = false; btn.textContent = '生成新报告'; }
+    const btn = $('btnGen'); btn.disabled = true; btn.textContent = t('btn.generating');
+    try { const r = await api('/api/reports/generate?lang=' + S.lang, {method:'POST'});
+      toast(r.data_stale ? t('reports.staleToast') : t('reports.toastGenerated')); renderDetail(r); loadReports();
+    } catch (e) { toast(e.message); } finally { btn.disabled = false; btn.textContent = t('btn.generate'); }
   };
+  if (S.report) renderDetail(S.report);
   loadReports();
 }
 
@@ -413,8 +861,8 @@ async function loadReports(){
     $('rptList').innerHTML = list.length ? '<div class="list">' + list.map(r => `
       <div class="item" data-rpt="${r.report_id}" style="cursor:pointer">
         <div class="t">${esc(r.title)}</div>
-        <div class="m">${fmtTime(r.generated_time)} · ${esc(r.status)}</div></div>`).join('') + '</div>'
-      : '<p style="color:var(--faint)">暂无报告。请先抓取数据，再点「生成新报告」。</p>';
+        <div class="m">${fmtTime(r.generated_time)} · ${esc(statusLabel(r.status))}</div></div>`).join('') + '</div>'
+      : `<p style="color:var(--faint)">${t('reports.empty')}</p>`;
     $('rptList').querySelectorAll('[data-rpt]').forEach(el => el.onclick = async () => {
       try { renderDetail(await api('/api/reports/' + el.dataset.rpt)); } catch (e) { toast(e.message); }
     });
@@ -422,13 +870,41 @@ async function loadReports(){
 }
 
 function renderDetail(r){
+  S.report = r;    // 记住当前报告，切换语言后可原样重绘
+
+  // 正文语言与当前界面语言不一致时，提供一键翻译
+  const joined = r.sections.map(s => s.content).join(' ');
+  const cjk = (joined.match(/[\u4e00-\u9fff]/g) || []).length;
+  const looksChinese = cjk > joined.length * 0.08;
+  const needTranslate = joined.trim().length > 0 &&
+    ((S.lang === 'en' && looksChinese) || (S.lang === 'zh' && !looksChinese));
+
   $('rptDetail').innerHTML = `
     <div style="font-weight:700;color:var(--navy);font-size:15px">${esc(r.title)}</div>
-    <div class="m" style="color:var(--faint);font-size:12.5px;margin:4px 0 12px">${fmtTime(r.generated_time)} · ${esc(r.status)}</div>
-    ${r.sections.map(s => `<div class="sec-title">${SECTION_LABEL[s.section_type] || s.section_type}</div>
+    <div class="m" style="color:var(--faint);font-size:12.5px;margin:4px 0 12px">${fmtTime(r.generated_time)} · ${esc(statusLabel(r.status))}</div>
+    ${r.data_stale ? `<div class="warnbox">${t('reports.stale', {hours: r.lookback_hours || 72, time: fmtTime(r.latest_source_time)})}</div>` : ''}
+    ${needTranslate ? `<button class="btn ghost sm" id="btnTranslate" style="margin-bottom:14px">${t('btn.translate')}</button>` : ''}
+    ${r.sections.map(s => `<div class="sec-title">${sectionLabel(s.section_type)}</div>
       <div class="sec-body">${esc(s.content)}</div>`).join('')}
-    <div class="sec-title">溯源原始数据（${r.sources.length} 条）</div>
-    <div class="src-list">${r.sources.map(s => `<a href="${esc(s.url||'#')}" target="_blank">${esc(s.title || s.data_id)}</a>`).join('') || '<span style="color:var(--faint)">无</span>'}</div>`;
+    <div class="sec-title">${t('reports.traced', {n: r.sources.length})}</div>
+    <div class="src-list">${r.sources.map(s => `<a href="${esc(s.url||'#')}" target="_blank">${esc(s.title || s.data_id)}</a>`).join('') || `<span style="color:var(--faint)">${t('reports.none')}</span>`}</div>`;
+
+  if (needTranslate) {
+    const btn = $('btnTranslate');
+    btn.onclick = async () => {
+      btn.disabled = true; btn.textContent = t('btn.translating');
+      try {
+        const translated = await api(
+          `/api/reports/${r.report_id}/translate?lang=${S.lang}`, {method:'POST'});
+        toast(t('toast.translated'));
+        renderDetail(translated);
+        loadReports();
+      } catch (e) {
+        toast(e.message);
+        btn.disabled = false; btn.textContent = t('btn.translate');
+      }
+    };
+  }
 }
 
 /* ============================================================
@@ -437,17 +913,17 @@ function renderDetail(r){
 async function viewChat(){
   const v = $('view');
   v.innerHTML = `
-    <div class="page-head"><div><h2>知识库对话</h2>
-      <p>基于已入库数据与生成报告的 RAG 问答，命中缓存会标注「缓存」</p></div>
+    <div class="page-head"><div><h2>${t('chat.title')}</h2>
+      <p>${t('chat.subtitle')}</p></div>
       <div class="spacer"></div>
-      <button class="btn sm" id="btnNewSess">新建会话</button></div>
+      <button class="btn sm" id="btnNewSess">${t('btn.newSession')}</button></div>
     <div class="grid c2" style="align-items:start">
-      <div class="card"><h3>会话</h3><div id="sessList">加载中…</div></div>
+      <div class="card"><h3>${t('chat.sessions')}</h3><div id="sessList">${t('sources.loading')}</div></div>
       <div class="card">
-        <h3>对话</h3>
-        <div class="chatlog" id="chatlog"><div class="msg sys">选择或新建一个会话开始提问</div></div>
-        <div class="chatinput"><input id="q" placeholder="例：本季度电机原材料价格有哪些变化？" disabled>
-          <button class="btn sm" id="btnAsk" disabled>发送</button></div>
+        <h3>${t('chat.dialog')}</h3>
+        <div class="chatlog" id="chatlog"><div class="msg sys">${t('chat.selectHint')}</div></div>
+        <div class="chatinput"><input id="q" placeholder="${t('ph.question')}" disabled>
+          <button class="btn sm" id="btnAsk" disabled>${t('btn.send')}</button></div>
       </div>
     </div>`;
 
@@ -465,9 +941,9 @@ async function loadSessions(){
     const list = await api('/api/chat/sessions');
     $('sessList').innerHTML = list.length ? '<div class="list">' + list.map(s => `
       <div class="item" data-sess="${s.session_id}" style="cursor:pointer">
-        <div class="t">${esc(s.title || '会话')}</div>
+        <div class="t">${esc(s.title || t('chat.untitled'))}</div>
         <div class="m">${fmtTime(s.last_active_at)}</div></div>`).join('') + '</div>'
-      : '<p style="color:var(--faint)">暂无会话，点「新建会话」。</p>';
+      : `<p style="color:var(--faint)">${t('chat.empty')}</p>`;
     $('sessList').querySelectorAll('[data-sess]').forEach(el => el.onclick = () => openSession(el.dataset.sess));
   } catch (e) { $('sessList').innerHTML = '<p style="color:var(--err)">' + esc(e.message) + '</p>'; }
 }
@@ -478,7 +954,7 @@ async function openSession(id){
   const log = $('chatlog'); log.innerHTML = '';
   try {
     const msgs = await api(`/api/chat/sessions/${id}/messages`);
-    if (!msgs.length) log.innerHTML = '<div class="msg sys">会话已就绪，开始提问吧</div>';
+    if (!msgs.length) log.innerHTML = `<div class="msg sys">${t('chat.ready')}</div>`;
     msgs.forEach(m => addMsg(m.sender_type === 'user' ? 'user' : 'ai', m.content));
   } catch (e) { toast(e.message); }
 }
@@ -494,12 +970,12 @@ function addMsg(role, text){
 async function askQuestion(){
   const q = $('q').value.trim(); if (!q || !S.session) return;
   $('q').value = ''; addMsg('user', q);
-  const pending = addMsg('ai', '思考中…');
+  const pending = addMsg('ai', t('chat.thinking'));
   $('btnAsk').disabled = true;
   try {
-    const r = await api('/api/chat/ask', {method:'POST', body: JSON.stringify({session_id: S.session, question: q})});
-    pending.textContent = r.answer + (r.cached ? '\n\n（本次结果命中 Redis 缓存）' : '');
-  } catch (e) { pending.textContent = '出错了：' + e.message; }
+    const r = await api('/api/chat/ask', {method:'POST', body: JSON.stringify({session_id: S.session, question: q, lang: S.lang})});
+    pending.textContent = r.answer + (r.cached ? '\n\n' + t('chat.cachedNote') : '');
+  } catch (e) { pending.textContent = t('chat.error') + e.message; }
   finally { $('btnAsk').disabled = false; }
 }
 
@@ -513,33 +989,97 @@ async function viewConfig(){
 
   const v = $('view');
   v.innerHTML = `
-    <div class="page-head"><div><h2>个性化配置</h2><p>角色影响报告口吻，订阅模块决定聚合哪些数据</p></div></div>
+    <div class="page-head"><div><h2>${t('config.title')}</h2><p>${t('config.subtitle')}</p></div></div>
     <div class="card">
-      <h3>我的角色</h3><div class="chips" id="cfgRoles"></div>
-      <div class="sec-title">订阅的情报模块</div><div class="chips" id="cfgModules"></div>
-      <div style="margin-top:16px"><button class="btn sm" id="btnSavePrefs">保存配置</button></div>
+      <h3>${t('config.myRoles')}</h3><div class="chips" id="cfgRoles"></div>
+      <div class="sec-title">${t('config.myModules')}</div><div class="chips" id="cfgModules"></div>
+      <div style="margin-top:16px"><button class="btn sm" id="btnSavePrefs">${t('btn.save')}</button></div>
+    </div>
+
+    <div class="card">
+      <h3>${t('config.adminTitle')}</h3>
+      <div class="adminrow">
+        <label class="switch"><input type="checkbox" id="adminToggle" ${S.admin ? 'checked' : ''}><span class="slider"></span></label>
+        <div>
+          <div style="font-weight:600;color:var(--navy)">${S.admin ? t('config.adminOn') : t('config.adminOff')}</div>
+          <div style="font-size:12.5px;color:var(--faint)">${t('config.adminHint')}</div>
+        </div>
+        <div class="spacer"></div>
+        <button class="btn ghost sm" id="adminGo" ${S.admin ? '' : 'hidden'}>${t('btn.openSystem')}</button>
+      </div>
+      <div id="adminPwdBox" hidden style="margin-top:12px">
+        <div class="adminpwd">
+          <input id="adminPwd" type="password" maxlength="128" autocomplete="off" placeholder="${t('config.adminPwdPh')}">
+          <button class="btn sm" id="adminUnlock">${t('btn.unlock')}</button>
+        </div>
+      </div>
+      <div id="adminErr" class="err" hidden style="margin-top:10px"></div>
     </div>`;
 
-  const build = (container, items, set, key, labelKey) => {
+  const build = (container, items, set, key, labelFn) => {
     container.innerHTML = '';
     items.forEach(it => {
       const b = document.createElement('button');
-      b.className = 'chip' + (set.has(it[key]) ? ' on' : ''); b.textContent = it[labelKey];
+      b.className = 'chip' + (set.has(it[key]) ? ' on' : ''); b.textContent = labelFn(it);
       b.onclick = () => { set.has(it[key]) ? set.delete(it[key]) : set.add(it[key]); b.classList.toggle('on'); };
       container.appendChild(b);
     });
   };
-  build($('cfgRoles'), S.meta.roles, roleSet, 'role_name', 'role_name');
-  build($('cfgModules'), S.meta.modules, modSet, 'module_code', 'module_name');
+  build($('cfgRoles'), S.meta.roles, roleSet, 'role_name', it => roleLabel(it.role_name));
+  build($('cfgModules'), S.meta.modules, modSet, 'module_code', it => moduleLabel(it));
 
   $('btnSavePrefs').onclick = async () => {
     try {
       const u = await api('/api/prefs', {method:'PUT', body: JSON.stringify({
         role_names:[...roleSet], module_codes:[...modSet] })});
-      S.user = u; $('whoami').textContent = u.username + ' · ' + (u.roles[0] || '未设角色');
-      toast('配置已保存');
+      S.user = u; updateUserChip();
+      toast(t('toast.prefsSaved'));
     } catch (e) { toast(e.message); }
   };
+
+  // ---------- 管理员模式 ----------
+  const adminToggle = $('adminToggle'), adminPwdBox = $('adminPwdBox'), adminErr = $('adminErr');
+  const showAdminErr = (msg) => { adminErr.textContent = msg; adminErr.hidden = false; };
+
+  adminToggle.onchange = async () => {
+    adminErr.hidden = true;
+    if (adminToggle.checked) {
+      if (S.admin) return;
+      // 仅显示密码框，真正解锁要等服务端校验通过
+      adminPwdBox.hidden = false;
+      setTimeout(() => { const el = $('adminPwd'); if (el) el.focus(); }, 0);
+    } else {
+      adminPwdBox.hidden = true;
+      if (S.admin) {
+        try { await api('/api/system/admin/lock', {method:'POST'}); } catch {}
+        S.admin = false;
+        applyAdminUI();
+        toast(t('toast.adminOff'));
+        switchView('config');
+      }
+    }
+  };
+
+  const doUnlock = async () => {
+    const el = $('adminPwd');
+    const pwd = (el && el.value) || '';
+    adminErr.hidden = true;
+    if (!pwd) { showAdminErr(t('config.adminNeedPwd')); return; }
+    try {
+      await api('/api/system/admin/unlock', {method:'POST', body: JSON.stringify({password: pwd})});
+      S.admin = true;
+      applyAdminUI();
+      toast(t('toast.adminOn'));
+      switchView('config');       // 重绘为“已开启”，并显示入口按钮
+    } catch (e) {
+      showAdminErr(e.message);
+      if (el) el.select();
+    }
+  };
+
+  $('adminUnlock').onclick = doUnlock;
+  $('adminPwd').addEventListener('keydown', e => { if (e.key === 'Enter') doUnlock(); });
+  $('adminGo').onclick = () => switchView('system');
 }
 
 /* ============================================================
@@ -549,32 +1089,38 @@ let statusTimer = null;
 async function viewSystem(){
   const v = $('view');
   v.innerHTML = `
-    <div class="page-head"><div><h2>后端同步状态</h2>
-      <p>数据库真实计数、分区、向量库与实时管道事件（数据来自后端 API，非前端伪造）</p></div></div>
+    <div class="page-head"><div><h2>${t('system.title')}</h2>
+      <p>${t('system.subtitle')}</p></div></div>
     <div class="grid c4" id="sysKpi"></div>
     <div class="grid c2" style="align-items:start">
-      <div class="card"><h3>各表数据量</h3><div id="tblStats">加载中…</div></div>
-      <div class="card"><h3>分区与运行环境</h3><div id="sysMeta">加载中…</div></div>
+      <div class="card"><h3>${t('system.tableStats')}</h3><div id="tblStats">${t('sources.loading')}</div></div>
+      <div class="card"><h3>${t('system.partitions')}</h3><div id="sysMeta">${t('sources.loading')}</div></div>
     </div>
-    <div class="card"><h3>实时管道事件（SSE 推送）</h3><div class="evlog" id="evlog"></div></div>`;
+    <div class="card"><h3>${t('system.events')}</h3><div class="evlog" id="evlog"></div></div>`;
 
   const paint = (st) => {
     $('sysKpi').innerHTML = `
-      <div class="kpi"><div class="n">${st.postgres_ok ? '正常' : '异常'}</div><div class="l">PostgreSQL</div></div>
-      <div class="kpi"><div class="n">${st.redis_ok ? '正常' : '异常'}</div><div class="l">Redis 缓存</div></div>
-      <div class="kpi"><div class="n">${st.embedding_count}</div><div class="l">向量分块数 (${esc(st.vector_backend)})</div></div>
-      <div class="kpi"><div class="n" style="font-size:15px">${esc(st.llm_model)}</div><div class="l">对话模型 · 管道 ${esc(st.broker_backend)}</div></div>`;
-    $('tblStats').innerHTML = '<table><tbody>' + st.tables.map(t =>
-      `<tr><td class="mono">${esc(t.name)}</td><td style="text-align:right;font-weight:600">${t.count}</td></tr>`).join('') + '</tbody></table>';
+      <div class="kpi"><div class="n">${st.postgres_ok ? t('system.ok') : t('system.bad')}</div><div class="l">PostgreSQL</div></div>
+      <div class="kpi"><div class="n">${st.redis_ok ? t('system.ok') : t('system.bad')}</div><div class="l">${t('system.redisCache')}</div></div>
+      <div class="kpi"><div class="n">${st.embedding_count}</div><div class="l">${t('system.vecChunks')} (${esc(st.vector_backend)})</div></div>
+      <div class="kpi"><div class="n" style="font-size:15px">${esc(st.llm_model)}</div><div class="l">${t('system.chatModel')} ${esc(st.broker_backend)}</div></div>`;
+    $('tblStats').innerHTML = '<table><tbody>' + st.tables.map(row =>
+      `<tr><td class="mono">${esc(row.name)}</td><td style="text-align:right;font-weight:600">${row.count}</td></tr>`).join('') + '</tbody></table>';
     $('sysMeta').innerHTML = `
-      <div class="m" style="color:var(--faint);font-size:12.5px;margin-bottom:8px">按时间分区（pg_inherits 实查）</div>
-      <div class="src-list">${st.partitions.map(p => `<span class="badge info">${esc(p)}</span>`).join('') || '无'}</div>
-      <div class="m" style="color:var(--faint);font-size:12.5px;margin:14px 0 6px">嵌入模型</div>
+      <div class="m" style="color:var(--faint);font-size:12.5px;margin-bottom:8px">${t('system.partitionHint')}</div>
+      <div class="src-list">${st.partitions.map(p => `<span class="badge info">${esc(p)}</span>`).join('') || t('system.none')}</div>
+      <div class="m" style="color:var(--faint);font-size:12.5px;margin:14px 0 6px">${t('system.embeddingModel')}</div>
       <span class="badge info">${esc(st.embedding_model)}</span>`;
     paintEvents(st.recent_events);
   };
 
-  const refresh = async () => { try { paint(await api('/api/system/status')); } catch {} };
+  const refresh = async () => {
+    try { paint(await api('/api/system/status')); }
+    catch (e) {
+      // 管理员解锁过期（403）时自动收起入口并退回数据源页
+      if (e.status === 403 && S.view === 'system') { S.admin = false; applyAdminUI(); toast(e.message); }
+    }
+  };
   await refresh();
   clearInterval(statusTimer); statusTimer = setInterval(refresh, 4000);
 }
@@ -602,23 +1148,29 @@ function connectEvents(){
     $('liveTick').textContent = fmtTime(e.ts) + '  ' + e.message;
     if (S.view === 'system') paintEvents(S.events);
   };
-  es.onerror = () => { $('liveStage').textContent = 'reconnecting'; };
+  es.onerror = () => { $('liveStage').textContent = t('live.reconnecting'); };
 }
 
 /* ============================================================
  * 启动
  * ============================================================ */
 (async function boot(){
+  setLang(S.lang);                 // 应用上次选择的语言
   loadMeta().catch(()=>{});
   connectEvents();
   if (S.token) {
-    try { const u = await api('/api/auth/me'); enterApp(S.token, u); }
-    catch { logout(false); }
+    try {
+      const u = await api('/api/auth/me');
+      enterApp(S.token, u);
+    } catch (e) {
+      // 401 已在 api() 内清除会话；网络抖动/请求被中断时保留令牌，避免误登出
+    }
   }
-  // 顶栏展示运行环境（公开接口，无需登录）
-  try { const st = await api('/api/system/status');
-    $('brokerChip').textContent = '管道：' + st.broker_backend;
-    $('vecChip').textContent = '向量库：' + st.vector_backend; } catch {}
+  // 顶栏展示运行环境（公开健康检查，无需管理员权限）
+  try { const st = await api('/api/health');
+    S.runtimeBroker = st.broker_backend;
+    S.runtimeVector = st.vector_backend;
+    updateTopbarChips(); } catch {}
 })();
 </script>
 </body>

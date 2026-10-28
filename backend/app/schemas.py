@@ -1,20 +1,58 @@
 """API 请求/响应模型（Pydantic）。集中定义，前后端字段一一对应。"""
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+# 邮箱格式校验（不额外引入 email-validator 依赖），规则：
+#   * 总长度 6~254，本地部分不超过 64
+#   * 本地部分允许常见字符，但不能以点开头/结尾，也不能出现连续点
+#   * 域名按标签校验（标签不能以连字符开头/结尾），顶级域为 2~63 个字母
+_EMAIL_RE = re.compile(
+    r"^(?=.{6,254}$)(?=.{1,64}@)"
+    r"[A-Za-z0-9!#$%&'*+/=?^_`{|}~.-]+@"
+    r"(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+"
+    r"[A-Za-z]{2,63}$"
+)
+
+_EMAIL_HINT = "邮箱格式不正确，请填写如 name@example.com"
+
+
+def is_valid_email(value: str) -> bool:
+    """判断邮箱是否符合标准格式。"""
+    if not _EMAIL_RE.match(value):
+        return False
+    local = value.rsplit("@", 1)[0]
+    if local.startswith(".") or local.endswith(".") or ".." in local:
+        return False
+    return True
 
 
 # ---------- 认证 ----------
 class RegisterIn(BaseModel):
     username: str = Field(min_length=2, max_length=64)
-    email: str = Field(max_length=255)
+    email: str = Field(max_length=254)      # 长度下限与格式统一交给 is_valid_email 判断
     password: str = Field(min_length=6, max_length=128)
     role_names: list[str] = Field(default_factory=list)      # Manager / Sales / Tech
     module_codes: list[str] = Field(default_factory=list)    # news / politics / business / finance
+
+    @field_validator("username")
+    @classmethod
+    def _strip_username(cls, v: str) -> str:
+        """去掉首尾空白，避免「 abc 」这类输入通过校验。"""
+        return v.strip()
+
+    @field_validator("email")
+    @classmethod
+    def _check_email(cls, v: str) -> str:
+        v = v.strip().lower()          # 统一小写，避免仅大小写不同的重复账号
+        if not is_valid_email(v):
+            raise ValueError(_EMAIL_HINT)
+        return v
 
 
 class LoginIn(BaseModel):
@@ -102,6 +140,10 @@ class ReportOut(BaseModel):
     generated_time: datetime
     sections: list[SectionOut] = Field(default_factory=list)
     sources: list[ReportSourceOut] = Field(default_factory=list)
+    # 数据新鲜度：素材全部早于时间窗时置为 True，前端据此提示“仅有旧数据”
+    data_stale: bool = False
+    latest_source_time: Optional[datetime] = None
+    lookback_hours: int = 72
 
 
 class ReportBrief(BaseModel):
@@ -129,6 +171,7 @@ class ChatMessageOut(BaseModel):
 class AskIn(BaseModel):
     session_id: uuid.UUID
     question: str = Field(min_length=1)
+    lang: str = Field(default="zh", pattern="^(zh|en)$")   # 回答语言，与前端界面语言联动
 
 
 class AskOut(BaseModel):
@@ -142,6 +185,14 @@ class AskOut(BaseModel):
 class TableStat(BaseModel):
     name: str
     count: int
+
+
+class AdminUnlockIn(BaseModel):
+    password: str = Field(min_length=1, max_length=128)
+
+
+class AdminStatusOut(BaseModel):
+    enabled: bool
 
 
 class SystemStatus(BaseModel):

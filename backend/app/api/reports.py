@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -9,12 +10,14 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.core.config import get_settings
 from app.db.models import RawData, Report, User
 from app.db.session import get_session
 from app.schemas import ReportBrief, ReportOut, ReportSourceOut, SectionOut
-from app.services.report_service import ReportService
+from app.services.report_service import ReportGenerationError, ReportService
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
+settings = get_settings()
 
 # 报告段落的展示顺序（摘要 → 经济 → 政策），避免按字母序排导致阅读顺序错乱
 _SECTION_ORDER = {"summary": 0, "economic": 1, "policy": 2}
@@ -22,12 +25,17 @@ _SECTION_ORDER = {"summary": 0, "economic": 1, "policy": 2}
 
 @router.post("/generate", response_model=ReportOut)
 async def generate_report(
-    user: User = Depends(get_current_user), session: AsyncSession = Depends(get_session)
+    lang: str = "zh",
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
 ) -> ReportOut:
-    """按当前用户的角色 + 订阅模块生成一份定制报告（真实调用 LLM + Embedding）。"""
-    report_id = await ReportService().generate_for_user(user.user_id)
+    """按当前用户的角色 + 订阅模块生成定制报告；lang 控制报告语言（zh/en）。"""
+    try:
+        report_id = await ReportService().generate_for_user(user.user_id, lang=lang)
+    except ReportGenerationError as exc:
+        raise HTTPException(400, str(exc))
     if report_id is None:
-        raise HTTPException(400, "暂无可用于生成报告的数据：请先配置模块并抓取数据")
+        raise HTTPException(400, "报告生成失败，请稍后重试")
     return await _load_report_out(session, report_id)
 
 
@@ -69,6 +77,20 @@ async def get_report(
     return await _build_out(session, report)
 
 
+@router.post("/{report_id}/translate", response_model=ReportOut)
+async def translate_report(
+    report_id: uuid.UUID,
+    lang: str = "zh",
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> ReportOut:
+    """把已有报告就地翻译成指定语言（用于英文模式下查看历史中文报告）。"""
+    ok = await ReportService().translate_report(report_id, user.user_id, lang)
+    if not ok:
+        raise HTTPException(404, "报告不存在")
+    return await _load_report_out(session, report_id)
+
+
 async def _load_report_out(session: AsyncSession, report_id: uuid.UUID) -> ReportOut:
     report = (
         await session.execute(
@@ -94,11 +116,21 @@ async def _build_out(session: AsyncSession, report: Report) -> ReportOut:
         ).all()
         title_map = {rid: (title, url) for rid, title, url in rows}
 
+    # 数据新鲜度：最新素材是否早于“当前时间 - 回溯窗口”
+    latest_source_time = max(
+        (s.data_publish_time for s in report.sources), default=None
+    )
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=settings.report_lookback_hours)
+    data_stale = bool(latest_source_time and latest_source_time < cutoff)
+
     return ReportOut(
         report_id=report.report_id,
         title=report.title,
         status=report.status,
         generated_time=report.generated_time,
+        data_stale=data_stale,
+        latest_source_time=latest_source_time,
+        lookback_hours=settings.report_lookback_hours,
         sections=[
             SectionOut(section_id=s.section_id, section_type=s.section_type, content=s.content)
             for s in sorted(

@@ -94,7 +94,9 @@ async def ask(
     if owner is None or owner.user_id != user.user_id:
         raise HTTPException(404, "会话不存在")
 
-    result = await RagService().ask(user.user_id, payload.session_id, payload.question)
+    result = await RagService().ask(
+        user.user_id, payload.session_id, payload.question, lang=payload.lang
+    )
     return AskOut(
         session_id=payload.session_id,
         answer=result["answer"],

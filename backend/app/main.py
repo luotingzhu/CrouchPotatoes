@@ -91,7 +91,12 @@ app.include_router(demo.router)
 
 @app.get("/api/health")
 async def health() -> dict:
-    return {"ok": True, "vector_backend": settings.vector_backend}
+    """公开健康检查（供前端顶栏展示运行环境，不含敏感数据）。"""
+    return {
+        "ok": True,
+        "vector_backend": settings.vector_backend,
+        "broker_backend": settings.broker_backend,
+    }
 
 
 # ---------- 前端静态页（单页 HTML，原生 JS） ----------

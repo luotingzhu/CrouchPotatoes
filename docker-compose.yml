@@ -8,6 +8,7 @@ services:
   postgres:
     image: pgvector/pgvector:pg16          # 官方镜像已内置 pgvector 扩展
     container_name: domel-postgres
+    restart: unless-stopped                # WSL/Docker 重启后自动拉起，避免演示时服务掉线
     environment:
       POSTGRES_USER: domel
       POSTGRES_PASSWORD: domel
@@ -27,6 +28,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: domel-redis
+    restart: unless-stopped                # 同上
     command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "6379:6379"
