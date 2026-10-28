@@ -78,9 +78,9 @@ async def trigger_source(
     return TriggerOut(source_id=source_id, sent=sent)
 
 
-# 每个模块的默认演示源：抓取时确保存在，保证各模块都能拿到当天数据
+# 各模块的默认演示源：抓取时确保存在，保证模块都有当天数据。
+# 注意：新闻模块只使用真实站点（东方财富/新浪/凤凰等），不再补内置演示源。
 _DEFAULT_FEEDS = [
-    ("示例资讯源 · 新闻", "news"),
     ("示例资讯源 · 政治", "politics"),
     ("示例资讯源 · 商业统计", "business"),
     ("示例资讯源 · 金融", "finance"),
