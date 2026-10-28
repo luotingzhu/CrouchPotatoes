@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import asyncio
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -78,11 +78,37 @@ async def trigger_source(
     return TriggerOut(source_id=source_id, sent=sent)
 
 
+# 每个模块的默认演示源：抓取时确保存在，保证各模块都能拿到当天数据
+_DEFAULT_FEEDS = [
+    ("示例资讯源 · 新闻", "news"),
+    ("示例资讯源 · 政治", "politics"),
+    ("示例资讯源 · 商业统计", "business"),
+    ("示例资讯源 · 金融", "finance"),
+]
+
+
+async def _ensure_default_sources(session: AsyncSession, base_url: str) -> None:
+    """补齐缺失的默认演示源（用户误删后也能自动恢复）。"""
+    base = base_url.rstrip("/")
+    for name, code in _DEFAULT_FEEDS:
+        url = f"{base}/api/demo/feed/{code}"
+        exists = (
+            await session.execute(select(DataSource.source_id).where(DataSource.url == url))
+        ).scalar_one_or_none()
+        if exists is None:
+            session.add(DataSource(source_name=name, url=url, source_type="api", status=1))
+    await session.commit()
+
+
 @router.post("/trigger-all", response_model=list[TriggerOut])
 async def trigger_all(
-    _: User = Depends(get_current_user), session: AsyncSession = Depends(get_session)
+    request: Request,
+    _: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
 ) -> list[TriggerOut]:
-    """一键触发所有启用中的数据源（演示用）。"""
+    """一键抓取所有启用的数据源；先确保每个模块都有默认源。"""
+    await _ensure_default_sources(session, str(request.base_url))
+
     ids = (
         await session.execute(
             select(DataSource.source_id).where(DataSource.status == 1)

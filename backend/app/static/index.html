@@ -302,6 +302,8 @@ const I18N = {
     'reports.empty': '暂无报告。请先抓取数据，再点「生成新报告」。',
     'reports.traced': '溯源原始数据（{n} 条）', 'reports.none': '无',
     'reports.stale': '本报告仅基于过时数据生成：近 {hours} 小时无新数据，最新素材时间为 {time}。',
+    'reports.staleModules': '涉及模块：{modules}。',
+    'reports.staleSuggest': '「{modules}」当前有最新数据，可在「个性化配置」中订阅后重新生成。',
     'reports.staleToast': '报告已生成（仅有旧数据）',
     'reports.toastGenerated': '报告已生成',
     'section.summary': '高亮摘要', 'section.economic': '经济分析', 'section.policy': '国家政策',
@@ -387,6 +389,8 @@ const I18N = {
     'reports.empty': 'No reports yet. Fetch data first, then click Generate report.',
     'reports.traced': 'Traced raw data ({n} items)', 'reports.none': 'None',
     'reports.stale': 'This report is based on stale data only: no new data in the last {hours} hours; latest source is from {time}.',
+    'reports.staleModules': 'Modules involved: {modules}.',
+    'reports.staleSuggest': '{modules} currently have fresh data — subscribe in Preferences and regenerate.',
     'reports.staleToast': 'Report generated (stale data only)',
     'reports.toastGenerated': 'Report generated',
     'section.summary': 'Highlights', 'section.economic': 'Economic analysis', 'section.policy': 'Government policy',
@@ -470,6 +474,7 @@ function t(key, vars){
 
 function roleLabel(name){ return (ROLE_LABEL[name] || {})[S.lang] || name; }
 function moduleLabel(item){ return (MODULE_LABEL[item.module_code] || {})[S.lang] || item.module_name; }
+function moduleLabelByCode(code){ return (MODULE_LABEL[code] || {})[S.lang] || code; }
 function fieldLabel(field){
   const key = 'field.' + field;
   const label = t(key);
@@ -869,6 +874,20 @@ async function loadReports(){
   } catch (e) { $('rptList').innerHTML = '<p style="color:var(--err)">' + esc(e.message) + '</p>'; }
 }
 
+function staleText(r){
+  const sep = S.lang === 'en' ? ', ' : '、';
+  const names = (codes) => (codes || []).map(moduleLabelByCode).join(sep);
+  let msg = t('reports.stale', {
+    hours: r.lookback_hours || 72,
+    time: fmtTime(r.latest_source_time)
+  });
+  const stale = names(r.stale_module_codes);
+  if (stale) msg += ' ' + t('reports.staleModules', {modules: stale});
+  const suggest = names(r.suggest_module_codes);
+  if (suggest) msg += ' ' + t('reports.staleSuggest', {modules: suggest});
+  return msg;
+}
+
 function renderDetail(r){
   S.report = r;    // 记住当前报告，切换语言后可原样重绘
 
@@ -882,7 +901,7 @@ function renderDetail(r){
   $('rptDetail').innerHTML = `
     <div style="font-weight:700;color:var(--navy);font-size:15px">${esc(r.title)}</div>
     <div class="m" style="color:var(--faint);font-size:12.5px;margin:4px 0 12px">${fmtTime(r.generated_time)} · ${esc(statusLabel(r.status))}</div>
-    ${r.data_stale ? `<div class="warnbox">${t('reports.stale', {hours: r.lookback_hours || 72, time: fmtTime(r.latest_source_time)})}</div>` : ''}
+    ${r.data_stale ? `<div class="warnbox">${staleText(r)}</div>` : ''}
     ${needTranslate ? `<button class="btn ghost sm" id="btnTranslate" style="margin-bottom:14px">${t('btn.translate')}</button>` : ''}
     ${r.sections.map(s => `<div class="sec-title">${sectionLabel(s.section_type)}</div>
       <div class="sec-body">${esc(s.content)}</div>`).join('')}

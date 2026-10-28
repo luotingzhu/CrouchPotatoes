@@ -5,13 +5,13 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.core.config import get_settings
-from app.db.models import RawData, Report, User
+from app.db.models import Module, RawData, Report, User, UserModulePref
 from app.db.session import get_session
 from app.schemas import ReportBrief, ReportOut, ReportSourceOut, SectionOut
 from app.services.report_service import ReportGenerationError, ReportService
@@ -123,6 +123,38 @@ async def _build_out(session: AsyncSession, report: Report) -> ReportOut:
     cutoff = datetime.now(timezone.utc) - timedelta(hours=settings.report_lookback_hours)
     data_stale = bool(latest_source_time and latest_source_time < cutoff)
 
+    # 订阅模块的数据新鲜度（用于向用户解释“为什么仍是旧数据”）
+    mod_rows = (
+        await session.execute(
+            select(Module.module_code, func.max(RawData.publish_time))
+            .join(UserModulePref, UserModulePref.module_id == Module.module_id)
+            .outerjoin(RawData, RawData.module_id == Module.module_id)
+            .where(
+                UserModulePref.user_id == report.user_id,
+                UserModulePref.is_enabled.is_(True),
+            )
+            .group_by(Module.module_code)
+        )
+    ).all()
+    subscribed = {code for code, _ in mod_rows}
+    stale_module_codes = [
+        code for code, latest in mod_rows if latest is None or latest < cutoff
+    ]
+
+    # 当前有新数据、但用户尚未订阅的模块 → 建议订阅
+    all_rows = (
+        await session.execute(
+            select(Module.module_code, func.max(RawData.publish_time))
+            .outerjoin(RawData, RawData.module_id == Module.module_id)
+            .group_by(Module.module_code)
+        )
+    ).all()
+    suggest_module_codes = [
+        code
+        for code, latest in all_rows
+        if latest and latest >= cutoff and code not in subscribed
+    ]
+
     return ReportOut(
         report_id=report.report_id,
         title=report.title,
@@ -131,6 +163,8 @@ async def _build_out(session: AsyncSession, report: Report) -> ReportOut:
         data_stale=data_stale,
         latest_source_time=latest_source_time,
         lookback_hours=settings.report_lookback_hours,
+        stale_module_codes=stale_module_codes,
+        suggest_module_codes=suggest_module_codes,
         sections=[
             SectionOut(section_id=s.section_id, section_type=s.section_type, content=s.content)
             for s in sorted(

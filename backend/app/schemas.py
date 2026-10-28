@@ -144,6 +144,9 @@ class ReportOut(BaseModel):
     data_stale: bool = False
     latest_source_time: Optional[datetime] = None
     lookback_hours: int = 72
+    # 便于前端解释：哪些订阅模块没有新数据、哪些模块当前有新数据可订阅
+    stale_module_codes: list[str] = Field(default_factory=list)
+    suggest_module_codes: list[str] = Field(default_factory=list)
 
 
 class ReportBrief(BaseModel):

@@ -140,12 +140,15 @@ async def demo_feed(module_code: str, session: AsyncSession = Depends(get_sessio
     module_id = module.module_id if module else 1
 
     now = datetime.now(timezone.utc)
+    # 当日快照标记：让示例内容每天变化一次，避免 content_hash 相同被去重，
+    # 从而保证「每次抓取后每个模块都有当天数据」；同一天内重复抓取仍会去重。
+    snapshot = datetime.now().strftime("%Y-%m-%d")
     items = []
     for idx, raw in enumerate(_FEEDS[module_code]):
         items.append(
             {
                 "title": raw["title"],
-                "content": raw["content"],
+                "content": raw["content"] + f"\n\n（数据快照日期：{snapshot}）",
                 "url": f"https://demo.domel.local/{module_code}/{idx + 1}",
                 # 让时间分散在最近几天，便于报告按时间窗聚合
                 "publish_time": (now - timedelta(hours=idx * 7 + 1)).isoformat(),
