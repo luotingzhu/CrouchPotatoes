@@ -106,3 +106,9 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 @app.get("/")
 async def index() -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/welcome")
+async def welcome() -> FileResponse:
+    """公开的产品介绍页（无需登录，可用于对外分享）。"""
+    return FileResponse(STATIC_DIR / "landing.html")
