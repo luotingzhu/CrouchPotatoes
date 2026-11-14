@@ -1,0 +1,448 @@
+================================================================================
+  Domel · 电机市场情报 AI 助手 —— 每周开发记录（数据库）
+  Domel · Motor Market Intelligence AI Assistant — Weekly Log (Database)
+================================================================================
+团队 / Team      : CrouchPotatoes
+记录人 / Author  : 组长 / Team leader
+周期 / Period    : 2026-11-05 ~ 2026-11-11
+本周重点 / Focus : 数据库设计与实现 / Database design and implementation
+对应里程碑 / Milestone:
+  Move from prototype to functioning product — working authentication plus
+  the first genuinely meaningful feature.
+  从原型走向可用产品：打通认证，并落地第一个真正有价值的核心功能。
+
+================================================================================
+一、本周目标 / 1. Objectives
+================================================================================
+
+  1. 把需求文档中的 13 个逻辑实体落成可执行的 PostgreSQL DDL。
+     Turn the 13 logical entities from the requirements doc into runnable
+     PostgreSQL DDL.
+  2. 落实物理设计要求：UUID 主键、分区、全文检索、JSONB 索引、向量字段。
+     Implement the physical-design requirements: UUID keys, partitioning,
+     full-text search, JSONB indexing and a vector column.
+  3. 让数据层支撑「抓取 → 报告 → 溯源 → 向量检索」这条主链路。
+     Make the data layer support the main chain: ingest → report →
+     traceability → vector retrieval.
+  4. 数据层跑通并留下可复现的验证证据。
+     Get the data layer running end to end with reproducible evidence.
+
+================================================================================
+二、交付内容 / 2. Deliverables
+================================================================================
+
+  文件 / File                        说明 / Description
+  -------------------------------   --------------------------------------------
+  db/schema.sql                    全量 DDL：扩展、表、分区、索引、函数
+                                   Full DDL: extensions, tables, partitions,
+                                   indexes, functions
+  backend/app/db/models.py         SQLAlchemy 2.0 ORM 模型，与 DDL 一一对应
+                                   SQLAlchemy 2.0 ORM models mirroring the DDL
+  backend/app/db/base.py           命名规范（约束/索引统一命名）
+                                   Naming conventions for constraints/indexes
+  backend/app/db/session.py        异步引擎与连接池
+                                   Async engine and connection pool
+  backend/scripts/seed_demo.py     演示数据初始化
+                                   Demo data seeding
+  backend/scripts/backfill_embeddings.py
+                                   历史数据补向量脚本
+                                   Backfill embeddings for existing rows
+
+================================================================================
+三、数据库设计 / 3. Database Design
+================================================================================
+
+3.1 全局约定 / Global conventions
+--------------------------------------------------------------------------------
+  - 主键 / Primary keys   : UUID，默认 gen_random_uuid()（pgcrypto 扩展）
+  - 业务编码 / Codes      : BIGINT GENERATED ALWAYS AS IDENTITY
+  - 长文本 / Long text    : TEXT
+  - 时间 / Timestamps     : TIMESTAMPTZ（带时区）
+  - 半结构化 / Semi-structured : JSONB（metadata）
+  - 枚举 / Enums          : VARCHAR + CHECK 约束（便于后续扩展取值）
+  - 删除策略 / Deletion   :
+      用户自有数据 CASCADE（删用户即清报告/会话）
+      User-owned data uses CASCADE
+      参考数据 RESTRICT（有引用时禁止删除）
+      Reference data uses RESTRICT
+
+3.2 实体与关系 / Entities and relationships
+--------------------------------------------------------------------------------
+  用户与权限 / Identity
+    users(user_id, username, email, password_hash, created_at)
+    roles(role_id, role_name)                  -- Manager / Sales / Tech
+    user_roles(user_id, role_id)               -- M:N
+
+  个性化配置 / Personalisation
+    modules(module_id, module_code, module_name)
+    user_module_prefs(user_id, module_id, is_enabled)   -- M:N + 开关
+
+  数据源与原始数据 / Sources and raw data
+    data_sources(source_id, source_name, url, source_type, status, crawl_cron)
+    raw_data(data_id, source_id, module_id, title, content, url,
+             publish_time, metadata, content_hash)
+
+  AI 报告 / Reports
+    reports(report_id, user_id, title, status, generated_time)
+    report_sections(section_id, report_id, section_type, content)
+      section_type ∈ {summary, economic, policy}
+    report_sources(report_id, data_id, data_publish_time, relevance, snippet)
+
+  AI 对话 / Chat
+    chat_sessions(session_id, user_id, title, created_at, last_active_at)
+    chat_messages(message_id, session_id, sender_type, content, metadata, created_at)
+
+  向量 / Vectors
+    embeddings(embedding_id, owner_type, owner_id, chunk_index,
+               chunk_text, embedding vector(1024), model_name)
+
+  关系总览 / Relationship summary
+    User  M:N  Role        User  M:N  Module
+    Source 1:N RawData     Module 1:N RawData
+    User 1:N Report        Report 1:N ReportSection
+    Report M:N RawData（经 report_sources，可溯源）
+    User 1:N ChatSession   ChatSession 1:N ChatMessage
+
+3.3 分区策略 / Partitioning
+--------------------------------------------------------------------------------
+  设计 / Design:
+    raw_data       PARTITION BY RANGE (publish_time)   -- 按月 / monthly
+    chat_messages  PARTITION BY RANGE (created_at)     -- 按月 / monthly
+
+  关键约束 / Key constraint:
+    分区表的 PRIMARY KEY / UNIQUE 必须包含分区键，否则无法建表。
+    A partitioned table's PRIMARY KEY / UNIQUE must include the partition key.
+      → raw_data     PK (data_id, publish_time)
+      → chat_messages PK (message_id, created_at)
+
+  由此带来的连锁设计 / Knock-on design:
+    report_sources 需要引用分区表，因此不能只存 data_id，必须带上
+    data_publish_time，用复合外键引用 (data_id, publish_time)（PG12+）。
+    report_sources therefore stores data_publish_time and references the
+    composite key (data_id, publish_time) — supported from PostgreSQL 12.
+
+  分区运维 / Partition operations:
+    ensure_monthly_partition(parent_table, month)
+      —— 幂等函数，已存在则跳过 / idempotent, skips existing partitions
+    建表时自动预建「当月 + 未来 2 个月」，共 3 个月分区；
+    Also pre-creates current month + next 2 months at deploy time.
+    同时建 *_default 兜底分区，防止超范围插入直接报错。
+    A *_default catch-all partition prevents insert failures out of range.
+
+3.4 索引策略 / Indexing
+--------------------------------------------------------------------------------
+  类型 / Type        索引 / Index                              用途 / Purpose
+  ----------------  ----------------------------------------  ----------------------
+  B-Tree            raw_data(publish_time DESC)               时间排序与分区裁剪
+                                                                 time ordering, pruning
+  B-Tree            raw_data(source_id) / (module_id)          外键过滤
+                                                                 FK filtering
+  B-Tree 复合        raw_data(source_id, content_hash)          去重查询
+                                                                 dedup lookup
+  GIN 全文           raw_data USING GIN (to_tsvector('simple',  全文检索
+                      title || content))                         full-text search
+  GIN 三元组         raw_data USING GIN (content gin_trgm_ops)   中文/模糊匹配
+                                                                 CJK / fuzzy match
+  GIN JSONB         raw_data USING GIN (metadata jsonb_path_ops) JSONB 键值检索
+                                                                 JSONB key lookup
+  B-Tree 复合        reports(user_id, generated_time DESC)      报告列表分页
+                                                                 report listing
+  GIN 全文           report_sections(to_tsvector('simple', content))
+                                                                 报告正文检索
+  B-Tree 复合        chat_messages(session_id, created_at DESC)  会话消息拉取
+                                                                 message paging
+  HNSW              embeddings USING hnsw (embedding
+                      vector_cosine_ops)                        向量相似检索
+                                                                 vector similarity
+
+  说明 / Note:
+    中文分词暂用 simple 配置，保证可建表；生产环境可替换为 zhparser/pg_jieba。
+    Chinese tokenisation uses the `simple` config so the schema always builds;
+    swap to zhparser/pg_jieba in production.
+
+3.5 向量存储 / Vector storage
+--------------------------------------------------------------------------------
+  采用库内向量表（pgvector），而非外置 Milvus/Qdrant，理由：
+  We keep vectors inside PostgreSQL (pgvector) instead of an external
+  Milvus/Qdrant for the prototype:
+    - 与业务表同库，写入与事务一致，部署少一个组件
+      Same database, transactional consistency, one less component to run
+    - HNSW 索引足够支撑当前数据量（千级到十万级分块）
+      HNSW is sufficient at the current scale (1e3–1e5 chunks)
+    - 维度固定为 1024，与 BAAI/bge-m3 对齐
+      Dimension fixed at 1024 to match BAAI/bge-m3
+
+  多态关联 / Polymorphic owner:
+    owner_type ∈ {raw_data, report_section, chat_message}
+    owner_id   + chunk_index 定位到具体分块
+    Allows one table to serve all three content types.
+
+3.6 生命周期管理 / Data lifecycle
+--------------------------------------------------------------------------------
+  热数据 / Hot  : 近 3 个月，留在主表分区
+                  Last 3 months, kept in the main partitioned tables
+  冷数据 / Cold : 超过 12 个月，由 archive_old_partitions() 处理
+                  Older than 12 months, handled by archive_old_partitions()
+  归档方式 / Method:
+    ALTER TABLE raw_data DETACH PARTITION <part>;
+    ALTER TABLE <part> SET SCHEMA archive;
+    用 DETACH 而非 DELETE，避免大表删除产生的膨胀与锁。
+    DETACH rather than DELETE avoids bloat and long locks on a large table.
+
+================================================================================
+四、技术决策与理由 / 4. Decisions and Rationale
+================================================================================
+
+  1. UUID 而非自增 BIGINT 作为主键
+     UUID instead of auto-increment BIGINT
+     理由：报告、会话等对象会出现在 URL 与前端请求中，UUID 不泄露数量级；
+           也便于未来分库或离线生成。
+     Why: report/session IDs appear in URLs; UUIDs leak no volume information
+          and allow offline or sharded generation later.
+
+  2. 月度 RANGE 分区，而非按周
+     Monthly range partitions rather than weekly
+     理由：周分区一年 52 个，分区数量增长快；月分区在演示数据量下
+           裁剪效果已足够，运维更简单。
+     Why: weekly partitioning yields 52 partitions per year and grows fast;
+          monthly partitioning already prunes well at demo scale and is
+          simpler to operate.
+
+  3. 分区键纳入主键
+     Partition key included in the primary key
+     理由：PostgreSQL 的硬性要求；代价是引用方必须带上时间列。
+     Why: hard requirement in PostgreSQL; the cost is that referencing tables
+          must carry the timestamp column.
+
+  4. 去重指纹存库 + 复合索引支撑判重
+     Store a dedup fingerprint and back lookups with a composite index
+     理由：抓取可能重放，需要稳定的判重依据；用 sha256(content) 作为
+           content_hash，并在 (source_id, content_hash) 上建复合索引，
+           让判重查询走索引而不是全表扫描。
+           真正的"跳过重复"逻辑放在入库服务里（先查后插），
+           而不是用唯一约束硬失败，避免同一批次内的竞态导致整批回滚。
+     Why: fetches can be replayed and need a stable fingerprint; sha256(content)
+          is stored as content_hash with a composite index on
+          (source_id, content_hash) so the lookup is indexed rather than a
+          sequential scan. The skip-duplicate decision lives in the ingestion
+          service (check-then-insert) instead of a hard unique constraint,
+          which would roll back an entire batch on an intra-batch race.
+
+  5. 枚举用 CHECK 而非 PostgreSQL ENUM
+     CHECK constraints instead of native ENUM
+     理由：ENUM 增删取值需要 ALTER TYPE，迁移成本高；CHECK 更易演进。
+     Why: native ENUMs require ALTER TYPE to change values; CHECK is easier
+          to evolve.
+
+  6. ORM 与 DDL 同源校验
+     ORM mirrors the DDL
+     理由：schema.sql 负责建库，models.py 负责读写，两者字段/类型必须一致；
+           向量维度统一从配置读取（EMBEDDING_DIM），避免三处硬编码不同步。
+     Why: schema.sql creates the database while models.py reads and writes;
+          field types must match. The vector dimension is read from config
+          (EMBEDDING_DIM) to prevent three hard-coded values drifting apart.
+
+================================================================================
+五、实施与验证 / 5. Implementation and Verification
+================================================================================
+
+5.1 环境 / Environment
+--------------------------------------------------------------------------------
+  PostgreSQL 16 + pgvector 镜像（Docker，WSL2）
+  PostgreSQL 16 with the pgvector image, running in Docker on WSL2
+  Redis 7（会话与热点缓存）
+  Redis 7 for sessions and hot cache
+
+5.2 建库步骤 / Provisioning steps
+--------------------------------------------------------------------------------
+  docker compose up -d                     # 起 PostgreSQL 与 Redis
+  docker compose exec postgres psql -U domel -d domel -f /docker-entrypoint-initdb.d/schema.sql
+  # 容器首次启动会自动执行 schema.sql
+  # schema.sql runs automatically on first container start
+
+5.3 验证结果 / Verification results
+--------------------------------------------------------------------------------
+  以下为 2026-11-11 实际执行查询的结果，非估算值。
+  Results below are from live queries run on 2026-11-11, not estimates.
+
+  检查项 / Check                       结果 / Result
+  -----------------------------------  ----------------------------------------
+  public schema 表数量 / table count   21
+  扩展 / extensions                    pgcrypto, pg_trgm, vector
+  raw_data 分区 / partitions           raw_data_2026_10, _2026_11, _2026_12,
+                                       raw_data_default
+  chat_messages 分区 / partitions      chat_messages_2026_10, _2026_11,
+                                       _2026_12, chat_messages_default
+  分区继承索引 / inherited indexes     每个分区继承 8 个索引（含 GIN 全文、
+                                       trgm、JSONB、去重复合索引）
+                                       Each partition inherits 8 indexes
+  raw_data 行数 / rows                 新闻 News 35 · 政治 Politics 6 ·
+                                       商业统计 Business 6 · 金融 Finance 63
+                                       （合计 / total 110）
+  embeddings 行数 / rows               709（HNSW 索引已生效）
+
+  复现命令 / Reproduce:
+    -- 表数量
+    SELECT count(*) FROM information_schema.tables
+     WHERE table_schema='public' AND table_type='BASE TABLE';
+
+    -- 分区清单
+    SELECT c.relname FROM pg_inherits i
+      JOIN pg_class c ON c.oid = i.inhrelid ORDER BY 1;
+
+    -- 各模块数据量
+    SELECT module_id, count(*) FROM raw_data GROUP BY module_id ORDER BY module_id;
+
+    -- 向量数量
+    SELECT count(*) FROM embeddings;
+
+5.4 端到端连通性 / End-to-end connectivity
+--------------------------------------------------------------------------------
+  数据层已在真实链路上被使用，而非空表：
+  The data layer is exercised by the real pipeline, not left empty:
+
+    抓取 Fetch → raw_data 分区表写入（content_hash 去重）
+              → raw_data partitions written with content_hash dedup
+    报告 Report → reports / report_sections / report_sources 三表联动，
+                  一份报告可回溯到具体原始条目
+                  Three tables cooperate; a report traces back to exact items
+    向量 Embed → embeddings 写入 709 个分块，HNSW 余弦检索可用
+                  709 chunks stored; HNSW cosine search operational
+    对话 Chat  → chat_sessions / chat_messages 分区写入 + Redis 缓存
+                  Partitioned writes plus Redis caching
+
+================================================================================
+六、遇到的问题与解决 / 6. Issues and Fixes
+================================================================================
+
+  问题 1 / Issue 1：分区表建主键失败
+  ------------------------------------------------------------------------------
+  现象：CREATE TABLE raw_data (... PRIMARY KEY (data_id)) PARTITION BY RANGE
+        (publish_time) 报错，提示唯一约束必须包含分区键。
+  Symptom: creating the partitioned table with a plain primary key on data_id
+           fails — the unique constraint must include the partition key.
+  原因：PostgreSQL 要求分区表上的唯一约束必须覆盖分区键，否则无法保证全局唯一。
+  Cause: PostgreSQL requires unique constraints on a partitioned table to
+         include the partition key, otherwise global uniqueness cannot be
+         guaranteed.
+  解决：主键改为 (data_id, publish_time)；chat_messages 同理改为
+        (message_id, created_at)。
+  Fix: primary key changed to (data_id, publish_time); chat_messages likewise
+       to (message_id, created_at).
+  连锁影响：report_sources 增加 data_publish_time 列，改用复合外键。
+  Knock-on: report_sources gained a data_publish_time column and a composite
+            foreign key.
+
+  问题 2 / Issue 2：向量维度三处不一致
+  ------------------------------------------------------------------------------
+  现象：向量写入报 "expected 1536 dimensions, not 1024"。
+  Symptom: insert fails with "expected 1536 dimensions, not 1024".
+  原因：schema.sql 的 vector(1536)、.env 的 EMBEDDING_DIM、ORM 的 Vector()
+        三处各自写死，更换 embedding 模型时漏改。
+  Cause: the dimension was hard-coded in three places (DDL, .env, ORM) and one
+         was missed when switching models.
+  解决：统一为 1024（BAAI/bge-m3 的实际维度）；DDL 修改 vector(1024)，
+        ORM 改为 Vector(settings.embedding_dim)，只保留配置单一来源。
+  Fix: standardised on 1024; DDL updated to vector(1024) and the ORM now uses
+       Vector(settings.embedding_dim), leaving config as the single source.
+
+  问题 3 / Issue 3：时区导致分区落错
+  ------------------------------------------------------------------------------
+  现象：午夜前后抓取的数据落进了上个月的分区。
+  Symptom: records fetched around midnight landed in the previous month's
+           partition.
+  原因：早期用 TIMESTAMP（无时区），服务器与数据库时区解释不一致。
+  Cause: TIMESTAMP without time zone was used initially, so the server and
+         database interpreted wall-clock values differently.
+  解决：全部时间列改为 TIMESTAMPTZ，应用侧统一以 UTC 写入。
+  Fix: all time columns switched to TIMESTAMPTZ; the application writes UTC.
+
+  问题 4 / Issue 4：中文全文检索召回差
+  ------------------------------------------------------------------------------
+  现象：用 to_tsvector('english', ...) 时中文几乎检索不到。
+  Symptom: searches over Chinese text returned almost nothing.
+  原因：默认分词器按空格切分，中文没有空格。
+  Cause: the default parser splits on whitespace, which Chinese lacks.
+  解决：全文索引先切到 simple 配置保证可用，同时补 gin_trgm_ops 三元组索引
+        作为中文模糊检索的兜底；生产环境再上 zhparser。
+  Fix: switched the FTS config to `simple` and added a gin_trgm_ops trigram
+       index as a fallback for CJK fuzzy matching; zhparser is deferred to
+       production.
+
+================================================================================
+七、下周计划 / 7. Next Week
+================================================================================
+
+  1. 数据源接入真实站点，替换演示数据，并观察分区增长与索引命中。
+     Connect real sources, replace demo data, and observe partition growth and
+     index usage.
+  2. 用 EXPLAIN (ANALYZE, BUFFERS) 对三条核心查询做执行计划复盘：
+     报告列表、会话消息拉取、向量检索。
+     Review query plans for the three core queries with EXPLAIN (ANALYZE,
+     BUFFERS): report listing, message paging, vector search.
+  3. 实现冷热归档的定时任务，并在测试环境演练一次 DETACH 归档。
+     Implement scheduled hot/cold archival and rehearse a DETACH cycle in the
+     test environment.
+  4. 补充数据库层单元测试：去重、分区路由、级联删除。
+     Add database-level tests: deduplication, partition routing, cascade delete.
+
+================================================================================
+附录 A：核心 DDL 片段 / Appendix A: Key DDL Snippets
+================================================================================
+
+-- 1) 扩展 / Extensions
+CREATE EXTENSION IF NOT EXISTS pgcrypto;   -- gen_random_uuid()
+CREATE EXTENSION IF NOT EXISTS pg_trgm;    -- gin_trgm_ops
+CREATE EXTENSION IF NOT EXISTS vector;     -- pgvector
+
+-- 2) 分区表 / Partitioned table
+CREATE TABLE raw_data (
+    data_id      UUID        NOT NULL DEFAULT gen_random_uuid(),
+    source_id    BIGINT      NOT NULL REFERENCES data_sources(source_id)
+                             ON DELETE RESTRICT,
+    module_id    BIGINT      NOT NULL REFERENCES modules(module_id)
+                             ON DELETE RESTRICT,
+    title        TEXT        NOT NULL,
+    content      TEXT,
+    url          TEXT,
+    publish_time TIMESTAMPTZ NOT NULL,               -- 分区键 / partition key
+    metadata     JSONB       NOT NULL DEFAULT '{}'::jsonb,
+    content_hash VARCHAR(64),
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT pk_raw_data PRIMARY KEY (data_id, publish_time)
+) PARTITION BY RANGE (publish_time);
+
+-- 3) 幂等建分区 / Idempotent partition creation
+CREATE OR REPLACE FUNCTION ensure_monthly_partition(
+    p_parent_table regclass,
+    p_month        date
+) RETURNS void AS $$
+DECLARE
+    v_start date := date_trunc('month', p_month)::date;
+    v_end   date := (date_trunc('month', p_month) + interval '1 month')::date;
+    v_name  text := format('%s_%s', p_parent_table::text,
+                           to_char(v_start, 'YYYY_MM'));
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = v_name) THEN
+        EXECUTE format(
+            'CREATE TABLE %I PARTITION OF %s FOR VALUES FROM (%L) TO (%L)',
+            v_name, p_parent_table, v_start, v_end
+        );
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 4) 全文检索 GIN 索引 / Full-text GIN index
+CREATE INDEX ix_raw_data_fts ON raw_data
+    USING GIN (to_tsvector('simple', coalesce(title,'') || ' ' ||
+                                      coalesce(content,'')));
+
+-- 5) 去重复合索引 / Dedup lookup index（判重由入库服务先查后插）
+CREATE INDEX ix_raw_data_content_hash
+    ON raw_data (source_id, content_hash);
+
+-- 6) 向量 HNSW 索引 / Vector HNSW index
+CREATE INDEX ix_embeddings_hnsw ON embeddings
+    USING hnsw (embedding vector_cosine_ops);
+
+================================================================================

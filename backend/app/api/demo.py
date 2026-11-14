@@ -149,7 +149,7 @@ async def demo_feed(module_code: str, session: AsyncSession = Depends(get_sessio
             {
                 "title": raw["title"],
                 "content": raw["content"] + f"\n\n（数据快照日期：{snapshot}）",
-                "url": f"https://demo.domel.local/{module_code}/{idx + 1}",
+                "url": f"https://demo.finbrief.local/{module_code}/{idx + 1}",
                 # 让时间分散在最近几天，便于报告按时间窗聚合
                 "publish_time": (now - timedelta(hours=idx * 7 + 1)).isoformat(),
                 "module_id": module_id,

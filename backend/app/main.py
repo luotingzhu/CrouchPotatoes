@@ -56,7 +56,7 @@ async def lifespan(app: FastAPI):
         await engine.dispose()
 
 
-app = FastAPI(title="Domel 电机市场情报 AI 助手", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="FinBrief 电机市场情报 AI 助手", version="1.0.0", lifespan=lifespan)
 
 
 @app.exception_handler(Exception)

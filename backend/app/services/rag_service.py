@@ -43,12 +43,12 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 RAG_SYSTEM_PROMPT = (
-    "你是 Domel 电机市场情报助手。请严格基于【检索到的资料】回答用户问题，"
+    "你是 FinBrief 电机市场情报助手。请严格基于【检索到的资料】回答用户问题，"
     "并在结论后用 [编号] 标注出处；资料不足时明确说明，不要编造。"
 )
 
 RAG_SYSTEM_PROMPT_EN = (
-    "You are the Domel motor market intelligence assistant. Answer strictly from the retrieved "
+    "You are the FinBrief motor market intelligence assistant. Answer strictly from the retrieved "
     "material, cite sources with [n] markers, and state clearly when evidence is insufficient. "
     "Never fabricate facts. Answer in English."
 )

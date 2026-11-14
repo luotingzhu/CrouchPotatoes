@@ -1,0 +1,435 @@
+================================================================================
+  Domel · 电机市场情报 AI 助手 —— 每周开发记录（第三个功能 + Checkpoint 2）
+  Domel · Motor Market Intelligence AI Assistant
+  Weekly Log — Third Feature & Checkpoint 2 Readiness
+================================================================================
+团队 / Team      : CrouchPotatoes
+记录人 / Author  : 组长 / Team leader
+周期 / Period    : 2026-11-05 ~ 2026-11-11
+本周重点 / Focus : 第三个功能：多源抓取入库管道 + 后端同步可观测面板
+                   Third feature: multi-source ingestion pipeline plus the
+                   backend sync observability panel
+对应里程碑 / Milestone:
+  Complete your third feature and prove your product actually functions,
+  ready for this week's building review, Checkpoint 2.
+  完成第三个功能，并证明产品确实能跑通，准备本周的 Checkpoint 2 评审。
+
+================================================================================
+一、本周目标 / 1. Objectives
+================================================================================
+
+  1. 交付第三个功能：多源数据抓取入库管道。
+     Ship the third feature: the multi-source ingestion pipeline.
+  2. 让「后端真的在动」这件事变得可见、可验证，而不是口头声称。
+     Make "the backend is really working" visible and verifiable rather than
+     merely asserted.
+  3. 把三条链路（抓取 → 入库 → 向量化 / 报告 / 对话）串成一次可演示的完整流程。
+     Chain the three paths (ingest → embed / report / chat) into one
+     demonstrable end-to-end flow.
+  4. 准备 Checkpoint 2：一份可复现的验收脚本与证据表。
+     Prepare for Checkpoint 2: a reproducible acceptance script and an
+     evidence table.
+
+================================================================================
+二、交付内容 / 2. Deliverables
+================================================================================
+
+  文件 / File                              说明 / Description
+  --------------------------------------  --------------------------------------
+  backend/app/services/ingestion_service.py
+                                          抓取、去重、入库、向量化主流程
+                                          Fetch, dedup, persist, embed
+  backend/app/api/sources.py               数据源列表、单源触发、一键抓取
+                                          Source list, per-source and
+                                          one-click triggers
+  backend/app/api/demo.py                  演示用资讯源（按日快照）
+                                          Demo feeds with daily snapshots
+  backend/app/core/events.py               进程内事件总线（SSE 广播）
+                                          In-process event bus for SSE
+  backend/app/api/system.py                系统状态 + 管理解锁 + SSE 端点
+                                          Status, admin unlock, SSE endpoint
+  backend/app/static/index.html            数据源页、后端同步状态页、底部实时条
+                                          Sources view, backend status view,
+                                          live event strip
+
+================================================================================
+三、第三个功能：抓取入库管道 / 3. Third Feature: Ingestion Pipeline
+================================================================================
+
+3.1 管道结构 / Pipeline shape
+--------------------------------------------------------------------------------
+  Airflow/手动触发
+  Airflow or manual trigger
+        │
+        ▼
+  run_source(source_id)
+        │
+        ├─ 1) 读取 data_sources，判断 source_type
+        │    Load data_sources and branch on source_type
+        │      api     → _fetch_api()      调用内置演示接口
+        │      crawler → _crawl()          抓取真实站点并解析文章
+        │
+        ├─ 2) 归一化：标题 / 正文 / URL / publish_time / module_id / 标签
+        │    Normalise: title, body, URL, publish_time, module_id, tags
+        │
+        └─ 3) 投递到 Broker（MVP 为进程内队列，接口与 Kafka 对齐）
+              Publish to the broker (in-process queue in the MVP, with a
+              Kafka-compatible boundary)
+
+  consume_loop() 常驻消费者 / resident consumer
+        │
+        ├─ 4) 计算 content_hash = sha256(title + content)
+        │    Compute content_hash = sha256(title + content)
+        │
+        ├─ 5) 去重：按 (source_id, content_hash) 查询，命中则跳过并广播事件
+        │    Dedup by (source_id, content_hash); skip and emit an event on hit
+        │
+        ├─ 6) 写入 raw_data（按月分区），先提交事务
+        │    Insert into raw_data (monthly partitions) and commit first
+        │
+        └─ 7) 事务提交后再向量化并写 embeddings
+              Vectorise and write embeddings only after the commit
+
+3.2 为什么先提交再向量化 / Why commit before embedding
+--------------------------------------------------------------------------------
+  向量化要调用外部 Embedding 服务，耗时且可能失败。
+  Embedding calls an external service: slow and fallible.
+  如果把它放在数据库事务里，一次网络抖动就会让整批入库回滚。
+  Holding the transaction open across that call means one network hiccup
+  rolls back the whole batch.
+  因此事务边界只覆盖「原始数据落库」，向量化作为后续步骤，失败可重试。
+  So the transaction covers only the raw-data write; embedding is a follow-up
+  step that can be retried independently.
+
+3.3 去重策略 / Deduplication
+--------------------------------------------------------------------------------
+  - 分区表无法建全局唯一约束（唯一约束必须包含分区键），
+    因此去重放在应用层：先查后插。
+    A partitioned table cannot carry a global unique constraint (the key must
+    include the partition key), so dedup lives in the application layer:
+    check first, then insert.
+  - (source_id, content_hash) 上建复合 B-Tree 索引，判重查询走索引。
+    A composite B-Tree index on (source_id, content_hash) keeps the lookup
+    indexed.
+  - 命中重复时不报错、不回滚，只跳过并广播「重复数据已跳过」事件。
+    A duplicate is not an error and does not roll back: it is skipped and
+    announced as an event.
+
+3.4 每日快照机制 / Daily snapshot mechanism
+--------------------------------------------------------------------------------
+  问题：演示源内容固定，重复抓取会被去重跳过，导致某模块长期没有新数据。
+  Problem: demo content is static, so repeated fetches dedupe away and a
+           module can go days without new rows.
+  做法：演示源返回的内容末尾追加当日日期标记
+        （数据快照日期：YYYY-MM-DD）。
+  Approach: each demo item carries today's date marker, so the content hash
+            changes once per day.
+  结果：每天第一次抓取会真正插入新行；同一天内重复抓取仍然去重。
+  Result: the first fetch each day inserts new rows; repeats the same day
+          still dedupe.
+
+================================================================================
+四、第三个功能：后端同步可观测面板 / 4. Backend Sync Observability Panel
+================================================================================
+
+4.1 设计动机 / Motivation
+--------------------------------------------------------------------------------
+  「产品能用」不能靠演示者口头说明，必须让评审直接看到后端发生了什么。
+  "It works" cannot rest on the presenter's word; the reviewer should see
+  what the backend is doing directly.
+  因此把后端真实状态做成一个页面，数据全部来自实时查询，没有一条是写死的。
+  So the real backend state is exposed as a page whose numbers all come from
+  live queries — nothing is hard-coded.
+
+4.2 展示内容 / What the panel shows
+--------------------------------------------------------------------------------
+  区块 / Block            数据来源 / Source                        说明 / Note
+  ----------------------  ---------------------------------------  --------------
+  服务连通性              SELECT 1 / Redis PING                    实时探针
+  Service health          live probes
+  表计数                  8 张核心表的 count(*)                    每次请求重新统计
+  Table counts            count(*) over 8 core tables              recomputed
+  分区列表                pg_inherits + pg_class                   真实分区名
+  Partition list          real partition names
+  向量数量                count(*) on embeddings                   与 pgvector 一致
+  Vector count
+  模型信息                .env 配置                                 LLM / Embedding
+  Model info
+  最近事件                event bus history(30)                    抓取/入库/报告轨迹
+  Recent events
+
+4.3 实时事件流 / Live event stream
+--------------------------------------------------------------------------------
+  实现：进程内 EventBus，每个订阅者一个 asyncio.Queue，发布即广播。
+  Implementation: an in-process EventBus; each subscriber gets an asyncio.Queue
+  and publishes broadcast to all.
+  阶段标记：crawl / ingest / embed / report / chat / system
+  Stage tags: crawl / ingest / embed / report / chat / system
+  可靠性细节 / Reliability details:
+    - 队列上限 200，满则丢弃最旧事件，绝不阻塞业务流程
+      Queue capped at 200; on overflow the oldest is dropped so business
+      logic never blocks
+    - 新订阅者回放最近 20 条，刚打开页面也能看到上下文
+      New subscribers replay the last 20 events for immediate context
+    - 历史最多保留 300 条，供状态接口一次性回放
+      History capped at 300 for the status endpoint
+    - SSE 每 15 秒发心跳，防止代理层断连
+      SSE heartbeat every 15 seconds to survive proxy timeouts
+
+4.4 权限门控 / Access gating
+--------------------------------------------------------------------------------
+  只有开启管理员模式才能进入该页面：
+  The page is reachable only in admin mode:
+    - 前端：未解锁时侧边栏不渲染该项，且 switchView('system') 被拦截
+      Frontend: the nav item is not rendered and switchView('system') is
+      intercepted while locked
+    - 后端：/api/system/status 依赖 require_admin，未解锁返回 403
+      Backend: /api/system/status depends on require_admin and returns 403
+      while locked
+    - 解锁标记存 Redis：admin:{user_id}，TTL 8 小时
+      Unlock flag stored in Redis as admin:{user_id}, TTL 8 hours
+    - 密码用 hmac.compare_digest 常数时间比较，避免时序侧信道
+      Password compared with hmac.compare_digest for constant-time behaviour
+  前端隐藏只是体验，服务端校验才是边界。
+  Hiding UI is convenience; the server check is the actual boundary.
+
+================================================================================
+五、Checkpoint 2 验收证据 / 5. Checkpoint 2 Evidence
+================================================================================
+
+5.1 现场演示脚本 / Live demo script
+--------------------------------------------------------------------------------
+  步骤 / Step                          预期可见结果 / Expected observable
+  -----------------------------------  --------------------------------------
+  1. 打开 /，用 demo / demo1234 登录    进入主界面，底部实时条出现事件
+     Log in with demo / demo1234        Main UI loads; live strip shows events
+  2. 进入「数据源与入库」              列出 12 个数据源及其状态
+     Open Sources & Ingestion           12 sources with statuses
+  3. 点「一键抓取全部」                逐条出现「开始抓取 → 已入库 → 已向量化」
+     Click Trigger all                  Per-item events across the three stages
+  4. 再点一次“一键抓取全部”            出现「重复数据已跳过」，行数不增长
+     Click Trigger all again            Duplicates skipped; row count unchanged
+  5. 进入「AI 情报报告」，生成新报告    3 个章节 + 目录 + 溯源条目
+     Generate a report                  3 chapters + TOC + traceable sources
+  6. 进入「知识库对话」，问同一问题两次  第一次正常，第二次标注命中 Redis 缓存
+     Ask the same question twice        First normal, second labelled cache hit
+  7. 个性化配置 → 开启管理员模式        输入 Ch11seburger 后侧栏出现第 5 项
+     Toggle admin mode                  Enter Ch11seburger; the 5th nav item
+  8. 进入「后端同步状态」               表计数、分区名、向量数、事件流全部实时
+     Open Backend Sync Status           Live counts, partitions, vectors, events
+
+5.2 证据表 / Evidence table
+--------------------------------------------------------------------------------
+  以下为 2026-11-11 实际查询结果，非估算值。
+  Results below are live queries from 2026-11-11, not estimates.
+
+  检查项 / Check                        结果 / Result
+  ------------------------------------  ---------------------------------------
+  数据源数量 / data sources             12（启用状态）
+                                       12 (enabled)
+  raw_data 总行数 / total rows          110
+                                        （新闻 35 · 政治 6 · 商业统计 6 ·
+                                          金融 63）
+  分区 / partitions                     raw_data_2026_10 / _11 / _12 / default
+                                        chat_messages_2026_10 / _11 / _12 /
+                                        default
+  分区继承索引 / inherited indexes      raw_data 每个分区 8 个
+                                        8 per raw_data partition
+  embeddings 总量 / total               709
+                                        （raw_data 379 · report_section 330）
+  公开健康检查 / health endpoint         /api/health → {ok:true}
+  受保护状态接口 / gated status          /api/system/status
+                                        未解锁 403 · 解锁后 200
+  数据库表数 / table count              21
+
+  复现命令 / Reproduce:
+    SELECT count(*) FROM data_sources WHERE status = 1;
+    SELECT count(*) FROM raw_data;
+    SELECT module_id, count(*) FROM raw_data GROUP BY module_id ORDER BY module_id;
+    SELECT tableoid::regclass, count(*) FROM chat_messages GROUP BY tableoid;
+    SELECT owner_type, count(*) FROM embeddings GROUP BY owner_type;
+    SELECT c.relname FROM pg_inherits i JOIN pg_class c ON c.oid = i.inhrelid;
+
+5.3 三条链路闭环 / Three closed loops
+--------------------------------------------------------------------------------
+  抓取闭环 / Ingestion loop
+    抓取 → 归一化 → Broker → 去重 → raw_data → embeddings
+    Fetch → normalise → broker → dedup → raw_data → embeddings
+  报告闭环 / Report loop
+    订阅模块 → 取数 → LLM 三段合成 → reports / report_sections /
+    report_sources → 段落向量化
+    Subscribed modules → select rows → three LLM sections → three tables →
+    section embeddings
+  对话闭环 / Chat loop
+    提问 → Redis 缓存 → 向量检索 → LLM 带引用作答 → 三处回写
+    Question → Redis cache → vector search → cited answer → write back
+
+  三条链路共用同一批 raw_data 与同一个 embeddings 表，因此不是三个独立演示。
+  All three share the same raw_data and the same embeddings table, so they are
+  not three separate demos.
+
+================================================================================
+六、技术决策与理由 / 6. Decisions and Rationale
+================================================================================
+
+  1. 抓取与入库解耦（Broker 在中间）
+     Fetch and persist are decoupled by a broker
+     理由：抓取慢且易失败，入库需要稳定；解耦后可削峰、可重放。
+     Why: fetching is slow and fragile while persistence must be reliable;
+          decoupling allows buffering and replay.
+
+  2. 事件总线放在进程内，而不是引入 Kafka 做演示
+     The event bus stays in-process instead of standing up Kafka for a demo
+     理由：演示只需要「可观察」，不需要跨进程持久化；接口边界保留，
+           后续替换不影响业务代码。
+     Why: the demo needs observability, not cross-process durability; the
+          boundary is kept so it can be swapped later without touching
+          business logic.
+
+  3. 状态接口每次实时查询，不做缓存
+     The status endpoint queries live every time, no caching
+     理由：这个页面的价值就是「所见即真实」，缓存会让它退化成另一个假数据页。
+     Why: the panel's entire value is that what you see is real; caching would
+          turn it into just another mock page.
+
+  4. SSE 而不是 WebSocket
+     SSE rather than WebSocket
+     理由：事件是单向推送，SSE 更轻；EventSource 浏览器原生支持，无需额外库。
+     Why: events are one-way; SSE is lighter and EventSource is native to the
+          browser with no extra library.
+
+  5. 队列满时丢弃最旧事件
+     Drop the oldest event when the queue is full
+     理由：可观测性不能反噬业务；宁可丢日志也不能阻塞入库。
+     Why: observability must never throttle the business; dropping a log line
+          beats blocking ingestion.
+
+  6. 管理员密码在服务端校验，前端不存明文
+     The admin password is verified server-side, never stored in the frontend
+     理由：前端硬编码密码等于公开；门控必须在服务端。
+     Why: a hard-coded password in the frontend is public; the gate must live
+          on the server.
+
+================================================================================
+七、遇到的问题与解决 / 7. Issues and Fixes
+================================================================================
+
+  问题 1 / Issue 1：抓取全部源耗时过长导致请求超时
+  ------------------------------------------------------------------------------
+  现象：一键抓取 12 个源时，前端请求等待超过一分钟。
+  Symptom: triggering all 12 sources left the request pending for over a minute.
+  原因：抓取在请求线程内串行执行，且每个站点都有网络延迟。
+  Cause: fetching ran serially inside the request and each site has network
+         latency.
+  解决：请求内只做「投递」，真正的抓取与入库由消费者异步完成，接口立即返回
+        投递条数。
+  Fix: the request now only publishes to the broker; the consumer performs the
+       actual fetch and persistence asynchronously, and the endpoint returns the
+       dispatched count immediately.
+
+  问题 2 / Issue 2：某个模块长期没有新数据
+  ------------------------------------------------------------------------------
+  现象：只订阅商业统计的账号，抓取后报告仍提示数据来自两周前。
+  Symptom: an account subscribed only to Business Stats still got reports built
+           on two-week-old rows after fetching.
+  原因：演示源内容固定，哈希不变，被去重跳过；真实财经源的数据归到新闻/金融，
+        不会进入商业统计。
+  Cause: demo content was static so its hash never changed and it was skipped;
+         real finance sources route to News/Finance, not Business Stats.
+  解决：演示源加当日日期标记，保证每天有新增；同时一键抓取时自动补齐各模块的
+        演示源；报告侧在数据过时时显式提示涉及哪些模块、建议订阅哪些模块。
+  Fix: demo items carry a daily marker so rows are added each day; one-click
+       fetch backfills missing per-module demo sources; reports now name the
+       stale modules and suggest modules that have fresh data.
+
+  问题 3 / Issue 3：离开状态页后仍在轮询并报 403
+  ------------------------------------------------------------------------------
+  现象：锁定管理员后，控制台仍持续出现 403。
+  Symptom: after locking admin mode, 403 responses kept appearing.
+  原因：状态页的定时轮询在视图切换时没有清理。
+  Cause: the polling timer was not cleared on view switch.
+  解决：视图销毁时 clearInterval，并在页面不可见时暂停。
+  Fix: clear the interval on view teardown and pause while the page is hidden.
+
+  问题 4 / Issue 4：状态页数字与数据库不一致
+  ------------------------------------------------------------------------------
+  现象：状态页显示的行数与直接查库的结果对不上。
+  Symptom: counts on the panel disagreed with direct database queries.
+  原因：早期对分区父表做 count 时统计口径与子表不一致，且部分数字被前端缓存。
+  Cause: early counts over the partitioned parent differed in scope and some
+         values were cached in the frontend.
+  解决：统一以父表 count(*) 为准（PostgreSQL 会自动汇总分区），前端每次进入
+        页面重新拉取，不做本地缓存。
+  Fix: standardised on count(*) over the parent (PostgreSQL aggregates
+       partitions automatically) and the frontend refetches on every entry
+       without local caching.
+
+  问题 5 / Issue 5：新闻模块混入虚构内容
+  ------------------------------------------------------------------------------
+  现象：新闻列表里出现域名 demo.domel.local 的条目。
+  Symptom: the news list contained items from demo.domel.local.
+  原因：早期为了让每个模块都有数据，给新闻也配了演示源。
+  Cause: the news module had been given a demo source so every module had data.
+  解决：停用该演示源并清除其数据，新闻只保留真实站点；一键抓取不再补回。
+  Fix: disabled that demo source and purged its rows; News now uses real sites
+       only and the backfill no longer recreates it.
+
+================================================================================
+八、下周计划 / 8. Next Week
+================================================================================
+
+  1. 把抓取延迟与失败率做成指标，在状态页增加「最近一次抓取耗时/成功率」。
+     Turn latency and failure rate into metrics and surface last-run duration
+     and success rate on the status panel.
+  2. 对重复抓取做压力测试，确认去重在高并发下仍然稳定。
+     Stress-test repeated fetches to confirm dedup holds under concurrency.
+  3. 为三条链路各补一条端到端自动化测试，纳入提交前检查。
+     Add one end-to-end test per path and wire them into the pre-submit check.
+  4. 准备 Checkpoint 2 的 5 分钟演示稿与备用录屏，防止现场网络问题。
+     Prepare a five-minute Checkpoint 2 script and a fallback recording in case
+     of on-site network issues.
+
+================================================================================
+附录 A：核心代码 / Appendix A: Key Code
+================================================================================
+
+# 1) 一键抓取：只投递，不阻塞 / Dispatch only, never block
+ids = (await session.execute(
+    select(DataSource.source_id).where(DataSource.status == 1)
+)).scalars().all()
+for sid in ids:
+    sent = await service.run_source(sid)
+    results.append(TriggerOut(source_id=sid, sent=sent))
+
+# 2) 去重 / Dedup
+content_hash = sha256_hash(f"{payload['title']}{payload['content']}")
+if await self._is_duplicate(session, payload["source_id"], content_hash):
+    await bus.publish("ingest", "重复数据已跳过", source_id=payload["source_id"])
+    return None
+
+# 3) 先提交事务，再向量化 / Commit first, then embed
+session.add(RawData(..., content_hash=content_hash))
+await session.flush()                        # 拿到 gen_random_uuid 主键
+data_id = obj.data_id
+await session.commit()                       # 事务边界到此为止
+await self._embed_and_store(data_id, payload)   # 失败不回滚已入库数据
+
+# 4) 事件广播 / Event broadcast
+await bus.publish("ingest", f"已入库 raw_data：{title[:40]}",
+                  data_id=str(data_id), module_id=module_id)
+await bus.publish("embed",
+                  f"向量化完成：{len(items)} 个分块 → {settings.vector_backend}",
+                  data_id=str(data_id), chunks=len(items))
+
+# 5) SSE 端点 / SSE endpoint
+event = await asyncio.wait_for(queue.get(), timeout=15)
+yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+# 超时则发心跳 / heartbeat on timeout
+yield ": ping\n\n"
+
+# 6) 管理员门控 / Admin gate
+if not hmac.compare_digest(payload.password, settings.admin_password):
+    raise HTTPException(403, "管理员密码错误")
+await redis_client.set(f"admin:{user.user_id}", "1", ex=settings.admin_session_ttl)
+
+================================================================================

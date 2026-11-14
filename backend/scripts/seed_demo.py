@@ -49,7 +49,7 @@ ALL_SOURCES = DEMO_SOURCES + REAL_SOURCES
 
 DEMO_USER = {
     "username": "demo",
-    "email": "demo@domel.local",
+    "email": "demo@finbrief.local",
     "password": "demo1234",
     "roles": ["Manager"],
     "modules": ["news", "politics", "business", "finance"],

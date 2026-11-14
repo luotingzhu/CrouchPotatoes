@@ -1,0 +1,397 @@
+================================================================================
+  Domel · 电机市场情报 AI 助手  —— 开发记录与 MVP 结构
+  Domel · Motor Market Intelligence AI Assistant  —— Dev Log & MVP Structure
+================================================================================
+生成日期 / Date: 2026-11-11
+
+================================================================================
+一、项目概述 / I. Project Overview
+================================================================================
+
+产品定位：面向 B 端电机行业企业的市场情报 AI 助手
+Positioning: An AI-powered market intelligence assistant for B2B enterprises
+             in the electric motor industry.
+
+核心痛点：企业内部市场数据碎片化、信息过载导致决策延误
+Core pain point: Fragmented internal market data and information overload that
+                 delay business decisions.
+
+产品形态：Web 应用（FastAPI 后端 + 原生 JS 单页前端）
+Product form: Web application (FastAPI backend + vanilla JS SPA frontend)
+
+部署方式：本地 Docker 容器化（PostgreSQL + Redis），后端 uvicorn 进程
+Deployment: Local Docker containers (PostgreSQL + Redis), uvicorn for backend.
+
+用户角色 / User roles: 管理者 Manager / 销售 Sales / 技术 Tech
+情报模块 / Intelligence modules:
+  新闻 News / 政治 Politics / 商业统计 Business Stats / 金融 Finance
+
+核心功能流 / Core feature flow:
+  1. 用户注册登录 → 选择角色 → 勾选情报模块
+     User signs up/logs in → selects role → subscribes to modules
+  2. 系统从多源抓取数据（爬虫/API）→ 入库 PostgreSQL
+     System fetches from multiple sources (crawler/API) → writes to PostgreSQL
+  3. AI 按用户偏好过滤噪音 → 生成定制化报告（目录 + 章节 + 溯源）
+     AI filters noise per user preference → generates personalised reports
+     (with table of contents + chapters + traceable sources)
+  4. 报告内容向量化 → 存入 pgvector
+     Report content vectorised → stored in pgvector
+  5. 用户基于报告和知识库进行多轮自然语言对话（RAG）
+     Multi-turn natural-language conversations over report + knowledge base (RAG)
+
+================================================================================
+二、技术栈选型 / II. Tech Stack & Rationale
+================================================================================
+
+后端框架：FastAPI（异步、类型提示、自动 OpenAPI 文档）
+Backend framework: FastAPI (async, type hints, auto OpenAPI docs)
+
+ORM：SQLAlchemy 2.0（async engine + 映射类）
+ORM: SQLAlchemy 2.0 (async engine + declarative mappings)
+
+数据库：PostgreSQL 16（pgvector/pgvector 镜像）
+Database: PostgreSQL 16 (pgvector/pgvector image)
+  - 扩展 / Extensions:
+    pgcrypto (UUID), pg_trgm (fuzzy search), vector (embeddings)
+  - 分区 / Partitioning:
+    raw_data by publish_time monthly, chat_messages by created_at monthly
+  - 索引 / Indexes:
+    foreign keys + time columns (B-Tree); content columns (GIN full-text);
+    metadata JSONB (GIN); embeddings (HNSW cosine)
+
+缓存：Redis 7（会话、短期上下文、问答缓存）
+Cache: Redis 7 (sessions, short-term context, Q&A cache)
+
+向量库：pgvector（与 PostgreSQL 合并，简化部署；备选 Qdrant）
+Vector store: pgvector (co-located with PostgreSQL to simplify deployment;
+              Qdrant as fallback)
+
+消息队列：进程内内存实现（Kafka 过重，MVP 阶段先替代）
+Message queue: In-process in-memory broker (Kafka is heavy; deferred to a later
+               phase in favour of an MVP-friendly solution)
+
+LLM 对话：DeepSeek deepseek-chat
+LLM for chat: DeepSeek deepseek-chat
+
+Embedding：SiliconFlow BAAI/bge-m3（1024 维）
+Embedding model: SiliconFlow BAAI/bge-m3 (1024 dimensions)
+
+前端：原生 HTML/CSS/JS 单页应用（无构建工具，FastAPI 静态托管）
+Frontend: Vanilla HTML/CSS/JS SPA (no build tooling, FastAPI static serving)
+
+容器化：Docker Compose
+Containerisation: Docker Compose
+
+================================================================================
+三、MVP 最小可运行结构 / III. MVP Minimum Viable Structure
+================================================================================
+
+3.1 目录结构 / Directory layout
+  CrouchPotatoes/
+  ├── docker-compose.yml            # PostgreSQL + Redis
+  ├── db/
+  │   └── schema.sql                # DDL script (21 tables)
+  └── backend/
+      ├── .env                      # Config (DB, Redis, AI keys)
+      ├── requirements.txt
+      ├── app/
+      │   ├── main.py               # FastAPI entrypoint
+      │   ├── core/                 # config / events
+      │   ├── db/                    # models / session
+      │   ├── api/                   # Routes: auth / prefs / sources /
+      │   │                          #          reports / chat / system / demo
+      │   ├── services/             # ai_client / vector_store / ingestion /
+      │   │                          # report / rag / cache
+      │   ├── pipeline/             # broker (in-memory queue) / scheduler
+      │   └── static/
+      │       ├── index.html        # Main app (SPA, behind login)
+      │       └── landing.html      # Public intro page (/welcome)
+      └── scripts/                  # seed_demo.py / backfill_embeddings.py
+
+3.2 数据库核心实体 / Core database entities
+  users(user_id PK uuid, username, email, password_hash)
+  roles(role_id PK int, role_name enum)
+  user_roles(user_id, role_id)                 -- M:N association
+  modules(module_id PK int, module_code, module_name)
+  user_module_prefs(user_id, module_id, is_enabled)
+  data_sources(source_id PK int, source_name, url, source_type, status)
+  raw_data(data_id PK uuid, source_id, module_id, title, content TEXT,
+           publish_time TIMESTAMPTZ, metadata JSONB, content_hash)
+  reports(report_id PK uuid, user_id, title, generated_time, status)
+  report_sections(section_id PK uuid, report_id, section_type, content)
+  report_sources(report_id, data_id, data_publish_time)  -- traceability
+  embeddings(owner_type, owner_id, vector vector(1024))
+  chat_sessions(session_id PK uuid, user_id, created_at)
+  chat_messages(message_id PK uuid, session_id, sender_type, content, created_at)
+
+3.3 API 路由 / API routes
+  POST /api/auth/register         Sign up (includes email format validation)
+  POST /api/auth/login            Log in (returns token)
+  GET  /api/auth/me               Current user info
+  GET/POST/PUT /api/prefs         Personalisation (roles + module subscriptions)
+  GET  /api/sources               Data source list
+  POST /api/sources/trigger-all   Trigger all sources (one-click fetch)
+  POST /api/sources/{id}/trigger  Trigger a single source
+  GET  /api/sources/raw           Inspect raw_data
+  GET  /api/reports               Report list
+  POST /api/reports/generate      Generate report (auto-selects fresh data from
+                                  subscribed modules)
+  GET  /api/reports/{id}          Report detail (sections + traceability +
+                                  stale-data hint)
+  GET  /api/chat/sessions         Session list
+  POST /api/chat/sessions         Create session
+  POST /api/chat/sessions/{id}/messages  Send message (RAG flow)
+  GET  /api/system/admin/status   Admin status
+  POST /api/system/admin/unlock   Unlock (password check)
+  GET  /api/system/events         SSE real-time event stream
+  GET  /api/health                Health check
+  GET  /api/welcome                Public intro page
+
+3.4 关键业务逻辑 / Key business logic
+
+  抓取入库 / Fetch → ingest pipeline:
+    Fetch → HTTP request each data source → extract title/body/publish time →
+    content_hash deduplication → Broker queue → Consumer writes raw_data
+    (demo sources are stamped with today's snapshot so a daily record is
+    always produced)
+
+  报告生成 / Report generation:
+    Fetch user's subscribed modules → prefer data within last 72h, fall back
+    to newest historical data → LLM produces 3 sections (summary / economic /
+    policy) → persist report + report_sections + report_sources for
+    traceability → vectorise into pgvector
+    (stale-data hint shows which subscribed modules lack fresh data and which
+     modules have fresh data the user could subscribe to)
+
+  RAG 对话 / RAG chat:
+    User asks → Redis cache first → on miss, vectorise query → pgvector cosine
+    retrieval top-k → assemble context → LLM generates answer with [1][2]
+    citation numbers → persist chat → write back to Redis
+
+================================================================================
+四、开发阶段记录（按时间顺序） / IV. Dev Log (Chronological)
+================================================================================
+
+阶段 1：架构设计与数据库建模 / Phase 1: Architecture & Data Modelling
+------------------------------
+  产出物 / Deliverables: 数据库结构.md, schema.sql
+  决策 / Decisions:
+    - UUID via gen_random_uuid() rather than snowflake BIGINT for primary keys
+    - Partitioned-table PK must include the partition key, so raw_data PK
+      changed to (data_id, publish_time)
+    - GIN indexes for full-text search; Chinese tokenisation uses `simple`
+      for now, can later swap to zhparser
+    - Cold-data archival uses DETACH PARTITION into an archive schema to
+      avoid massive DELETEs
+  遇到问题 / Issues encountered:
+    - First version of schema.sql omitted the vector dimension constraint,
+      causing a dimension mismatch on ingestion; fixed by unifying three
+      places: schema.sql vector(1024), .env EMBEDDING_DIM, ORM Vector(settings.embedding_dim)
+
+阶段 2：后端骨架与基础设施 / Phase 2: Backend Skeleton & Infrastructure
+------------------------------
+  产出物 / Deliverables: docker-compose.yml, models.py, session.py, main.py
+  技术选型决策 / Tech decisions:
+    - Message queue: Kafka is heavy; use an in-process in-memory broker for MVP
+    - Scheduler: Airflow is heavy; use manual / one-click triggers for MVP
+    - Vector store: pgvector is preferred (co-located with PostgreSQL for
+      simpler deployment)
+  遇到问题 / Issues encountered:
+    - WSL Docker daemon permission denied: usermod -aG docker $USER did not
+      take effect; fix: wsl --shutdown for a full restart
+    - docker.io pull timeout on mainland China networks; fix: daemon.json
+      with four registry mirrors (docker.m.daocloud.io, etc.)
+
+阶段 3：AI 服务层 / Phase 3: AI Service Layer
+------------------------------
+  产出物 / Deliverables: ai_client.py, vector_store.py, ingestion_service.py,
+          report_service.py, rag_service.py
+  技术选型决策 / Tech decisions:
+    - DeepSeek has no embedding endpoint → use DeepSeek deepseek-chat for
+      conversation, SiliconFlow BAAI/bge-m3 (1024 dim, generous free tier)
+      for embeddings
+    - Conversation uses OPENAI_* config group; embeddings use a separate
+      EMBEDDING_* config group for clean decoupling
+  遇到问题 / Issues encountered:
+    - .env keys are not read by AsyncOpenAI (it reads OS env vars only);
+      fix: explicitly pass api_key=settings.xxx
+
+阶段 4：前端单页应用 / Phase 4: Frontend SPA
+------------------------------
+  产出物 / Deliverables: index.html (SPA)
+  功能模块 / Feature modules:
+    - Login/register (client-side pre-validation, duplicate-submission guard)
+    - Personalisation (role selection + module checkboxes + admin mode)
+    - Data sources & ingestion (source list, one-click fetch, raw_data browser)
+    - AI reports (table of contents + chapters + stale hint + translate button)
+    - Knowledge-base chat (multi-turn, Redis cache-hit indicator)
+    - Backend sync status (admin-only: PG/Redis health, partition list, SSE
+      event pipeline)
+  语言与交互 / i18n & interaction:
+    - CN/EN pill button (localStorage-persisted)
+    - Live event strip (SSE subscription)
+  遇到问题 / Issues encountered:
+    - Registration errors shown as "[object Object]": FastAPI 422 detail is an
+      array of objects; fix: formatApiError() handles four shapes uniformly
+      (string / array / object / plain text) and maps pydantic error types
+      to user-facing Chinese messages (e.g. string_too_short → "length must
+      be at least N characters")
+    - Email-format validation was missing: first version only enforced length;
+      legacy rows had invalid addresses like "123"; fix: unified regex
+      (total length 6-254, local part ≤64, labels cannot start/end with hyphen,
+      TLD ≥2 letters), auto strip leading/trailing spaces and lowercase
+
+阶段 5：权限与安全 / Phase 5: Auth & Security
+------------------------------
+  产出物 / Deliverables: system.py (admin routes)
+  设计 / Design:
+    - Admin-mode toggle + password Ch11seburger (server-side check with
+      hmac.compare_digest for constant-time comparison)
+    - Redis key admin:{user_id}, TTL 8 hours
+    - Before unlock, the sidebar hides "Backend Sync Status"; frontend also
+      intercepts switchView('system')
+    - Top-bar environment info moved to public /api/health so regular users
+      are unaffected
+  遇到问题 / Issues encountered:
+    - Leaving the backend-sync page did not clean up the polling timer,
+      causing continuing 403 requests after lockout; fix: visibilitychange
+      listener + clearInterval on page teardown
+
+阶段 6：数据新鲜度与每日快照 / Phase 6: Data Freshness & Daily Snapshots
+------------------------------
+  需求背景 / Why this was needed:
+    - Steven's account only subscribed to Business Stats → after fetching
+      News/Finance, the report still only used old 14-Oct data
+    - Deduplication meant repeated fetches could not refresh publish_time
+  解决 / Resolution:
+    - Demo-source content is stamped with a daily snapshot marker:
+      append "（数据快照日期：YYYY-MM-DD）" at the end → first fetch of the day
+      inserts new rows; same-day repeats still dedupe
+    - One-click fetch calls _ensure_default_sources() to backfill demo sources
+      for each module if missing
+    - Report stale hint upgraded: data_stale / stale_module_codes /
+      suggest_module_codes → shows which subscribed modules lack fresh data
+      and which modules with fresh data the user could subscribe to
+  遇到问题 / Issues encountered:
+    - _ensure_default_sources() initially listed news, conflicting with
+      "news uses only real sources"; fix: remove news, keep politics /
+      business / finance only
+
+阶段 7：新闻源真实化 / Phase 7: Real News Sources
+------------------------------
+  决策 / Decision: News module no longer uses built-in demo sources
+  操作 / Actions taken:
+    - Disable source_id=1 (demo news source)
+    - Delete its 6 fake rows + 6 embeddings
+    - News module data sources now: Eastmoney / Sina / Ifeng / Eastmoney INT
+    - One-click fetch no longer auto-re-adds the demo news source
+
+阶段 8：报告版式优化 / Phase 8: Report Layout Polish
+------------------------------
+  改版前 / Before: 3 sections laid out flat, one after another
+  改版后 / After:
+    - Top table of contents (clickable, anchors to each chapter)
+    - Three chapter blocks: 01 Highlights / 02 Economic Analysis /
+      03 Government Policy
+    - Each chapter has its own title + divider + numbered badge
+    - Auto-strips the duplicate first-level heading from the body (prevents
+      "Highlights" appearing twice)
+
+阶段 9：公开介绍页 / Phase 9: Public Intro Page
+------------------------------
+  产出物 / Deliverable: landing.html (/welcome)
+  设计 / Design: Full-bleed hero with radar animation visual anchor +
+                 three-column role section + numbered workflow line +
+                 mocked report TOC + tech-spec strip + call-to-action
+  后续计划 / Next step: Publish via NAT traversal (choose one of
+                        frp / HSK / ngrok)
+
+================================================================================
+五、MVP 验收清单 / V. MVP Acceptance Checklist
+================================================================================
+
+已完成的核心能力 / Core capabilities delivered:
+  [x] 用户注册登录（含邮箱格式校验、密码强度、角色模块绑定）
+      Sign-up & login (email format validation, password strength, role/module binding)
+  [x] 中英双语界面（CN/EN 切换持久化）
+      Bilingual UI (CN/EN switch persisted)
+  [x] 多源数据抓取（真实站点 + 每日快照示例源）
+      Multi-source fetch (real sites + daily-snapshot demo sources)
+  [x] content_hash 去重 + 向量化
+      content_hash deduplication + vectorisation
+  [x] AI 报告生成（3 章节 + 目录 + 溯源 + stale 提示）
+      AI report generation (3 chapters + TOC + traceability + stale hint)
+  [x] RAG 多轮对话（pgvector 检索 + Redis 缓存优先）
+      RAG multi-turn chat (pgvector retrieval + Redis cache-first)
+  [x] 管理员权限（Ch11seburger 密码解锁后端同步面板）
+      Admin privileges (Ch11seburger unlocks backend-sync panel)
+  [x] SSE 实时事件流
+      SSE real-time event stream
+  [x] 数据库分区表（raw_data / chat_messages 各 3 月 + default）
+      Partitioned tables (raw_data / chat_messages, 3 months + default each)
+  [x] pgvector HNSW 索引
+      pgvector HNSW index
+  [x] 公开介绍页 /welcome
+      Public intro page /welcome
+
+MVP 范围外（未实现或简化） / Out of MVP scope (not implemented or simplified):
+  [ ] Kafka（用内存 Broker 替代）
+      Kafka (replaced by in-memory broker)
+  [ ] Airflow 定时调度（手动触发）
+      Airflow scheduled triggers (manual trigger used instead)
+  [ ] Qdrant / Milvus（pgvector 合并部署）
+      Qdrant / Milvus (pgvector co-location chosen instead)
+  [ ] 冷热数据归档（DDL 已写，生产环境按需执行）
+      Hot/cold archival (DDL written; execute in production as needed)
+  [ ] zhparser 中文全文分词（暂用 simple）
+      zhparser Chinese full-text tokeniser (simple used for now)
+
+================================================================================
+六、本地启动 / VI. Local Startup
+================================================================================
+
+步骤 1：Docker 容器 / Step 1: Docker containers
+  cd CrouchPotatoes
+  docker compose up -d
+  # Image mirrors are already configured (required on mainland CN networks)
+
+步骤 2：Python 后端 / Step 2: Python backend
+  cd backend
+  .\.venv\Scripts\activate       # or call .venv/Scripts/python.exe directly
+  python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+步骤 3：浏览器访问 / Step 3: Open in browser
+  http://127.0.0.1:8000          # Main app (behind login)
+  http://127.0.0.1:8000/welcome  # Public intro page
+
+步骤 4：演示账号 / Step 4: Demo accounts
+  demo / demo1234                # Manager, subscribed to all 4 modules
+  Steven (register yourself)     # Sales; can subscribe to Business Stats, etc.
+  Admin unlock code: Ch11seburger  # opens Backend Sync Status panel
+
+================================================================================
+七、内网穿透发布公网（待实施） / VII. Public Internet via NAT Traversal (TODO)
+================================================================================
+
+三种常用方案（选一）/ Three common options (pick one):
+
+  A. 花生壳 / Oray HSK (国内 / CN)
+     Register at https://hsk.oray.com → enable NAT traversal → enter
+     local address 127.0.0.1:8000 → receive a public xxx.oray.net domain
+     that opens directly in any browser.
+
+  B. frp (self-hosted, 最灵活 / most flexible)
+     Run frps on a cloud server with a public IP (Alibaba Cloud / Tencent
+     Cloud lowest-tier instance is fine), run frpc locally pointing at
+     127.0.0.1:8000, and reverse-proxy with Nginx to a domain.
+
+  C. ngrok (海外 / overseas, free personal tier)
+     Sign up at ngrok.com, get a token, run: ngrok http 8000
+     → receive a temporary https://xxxx.ngrok-free.app domain.
+
+推荐 / Recommendation:
+  For your teacher demo, Oray HSK is the simplest (stable on CN networks,
+  no extra server needed). Use frp if you already have an Alibaba/Tencent
+  Cloud instance and want more control.
+
+================================================================================

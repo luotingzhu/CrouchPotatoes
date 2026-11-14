@@ -1,0 +1,387 @@
+================================================================================
+  Domel · 电机市场情报 AI 助手 —— 每周开发记录（第二个功能 + 产品一致性）
+  Domel · Motor Market Intelligence AI Assistant
+  Weekly Log — Second Feature & Product Coherence
+================================================================================
+团队 / Team      : CrouchPotatoes
+记录人 / Author  : 组长 / Team leader
+周期 / Period    : 2026-11-05 ~ 2026-11-11
+本周重点 / Focus : 第二个功能：知识库 RAG 对话；并把两个功能缝成一个产品
+                   Second feature: knowledge-base RAG chat, plus making the
+                   two features read as one product
+对应里程碑 / Milestone:
+  Build your second feature and make the product feel like one coherent
+  thing, not two disconnected demos.
+  做第二个功能，并让产品成为一个连贯的整体，而不是两个割裂的演示。
+
+================================================================================
+一、本周目标 / 1. Objectives
+================================================================================
+
+  1. 在已有「AI 情报报告」之上，交付第二个完整功能：基于知识库的多轮对话。
+     Ship the second complete feature on top of the existing AI report:
+     multi-turn conversation over the knowledge base.
+  2. 复用同一套数据与同一条链路，而不是另起一套演示。
+     Reuse the same data and the same pipeline instead of building a second
+     demo in parallel.
+  3. 统一导航、语言、权限、错误提示，让两个功能看起来是同一个产品。
+     Unify navigation, language, permissions and error handling so both
+     features read as one product.
+  4. 留下可验证的证据：分区落库、缓存命中、引用可追溯。
+     Leave verifiable evidence: partition routing, cache hits, traceable
+     citations.
+
+================================================================================
+二、交付内容 / 2. Deliverables
+================================================================================
+
+  文件 / File                              说明 / Description
+  --------------------------------------  --------------------------------------
+  backend/app/services/rag_service.py     RAG 主流程：缓存 → 检索 → 生成 → 回写
+                                          RAG pipeline: cache → retrieve →
+                                          generate → write back
+  backend/app/core/cache.py               Redis：短期上下文（List）+ 问答缓存
+                                          Redis: short-term context (List) +
+                                          answer cache
+  backend/app/api/chat.py                 会话与问答接口，含归属校验
+                                          Session/ask endpoints with ownership
+                                          checks
+  backend/app/services/vector_store.py    pgvector/Qdrant 抽象，按 owner_type 检索
+                                          Vector store abstraction; search by
+                                          owner_type
+  backend/app/static/index.html           对话视图 + 缓存标注 + 双语词条
+                                          Chat view, cache label, bilingual
+                                          strings
+
+================================================================================
+三、第二个功能：知识库 RAG 对话 / 3. Second Feature: Knowledge-base RAG Chat
+================================================================================
+
+3.1 用户可见行为 / User-visible behaviour
+--------------------------------------------------------------------------------
+  - 左侧会话列表，右侧对话区；可新建会话、切换会话、查看历史消息。
+    Session list on the left, conversation on the right; create, switch and
+    review history.
+  - 提问后返回答案，答案里用 [1][2] 标注出处，并返回引用条目的 ID。
+    Answers cite sources with [n] markers and return the referenced item IDs.
+  - 同一问题再次提问会标注「本次结果命中 Redis 缓存」。
+    Re-asking the same question is labelled as served from the Redis cache.
+  - 中英文分别作答；英文模式下即使检索到中文资料也用英文回答。
+    Answers follow the UI language; in EN mode the model answers in English
+    even when the retrieved material is Chinese.
+
+3.2 服务端流程 / Server-side pipeline
+--------------------------------------------------------------------------------
+  ask(user_id, session_id, question, lang)
+    │
+    ├─ 0) 归属校验：session.user_id 必须等于当前用户，否则 404
+    │    Ownership check: the session must belong to the caller, else 404
+    │
+    ├─ 1) 缓存优先 cache-aside
+    │    key = chat:a:{session_id}:{lang}:{sha256(question)[:16]}
+    │    命中 → 直接返回，并标记 cached=true
+    │    Hit  → return immediately with cached=true
+    │
+    ├─ 2) 取 Redis 短期上下文（最近 10 轮，供多轮记忆）
+    │    Load short-term context from Redis (last 10 turns)
+    │
+    ├─ 3) 问题向量化 → pgvector 余弦检索 Top-6
+    │    检索范围：report_section + raw_data 两类来源
+    │    Embed the question → cosine search, top 6, over both report
+    │    sections and raw data
+    │
+    ├─ 4) 拼装 Prompt：历史对话 + 检索片段（带编号）→ LLM
+    │    Assemble prompt: history + numbered retrieved chunks → LLM
+    │    系统提示要求「只依据检索资料回答、必须标注出处、资料不足要说明」
+    │    The system prompt forbids fabrication and requires citation markers
+    │
+    └─ 5) 回写三处
+         a. chat_messages 落库（按月分区，长期留存）
+            Persist to chat_messages (monthly partitions, long-term)
+         b. Redis 上下文追加并刷新 TTL（短期记忆）
+            Append to Redis context and refresh TTL (short-term memory)
+         c. Redis 结果缓存写入（下次同样问题直接命中）
+            Write the answer cache so the same question hits next time
+
+3.3 为什么这个功能不是「第二个 demo」
+     Why this is not "a second disconnected demo"
+--------------------------------------------------------------------------------
+  它复用第一阶段的全部资产，没有新建一套数据：
+  It reuses every asset from the first feature; no parallel dataset:
+
+    复用点 / Reused asset            说明 / Note
+    ------------------------------  ------------------------------------------
+    同一批原始数据                   对话检索的 raw_data 就是抓取入库的那批
+    Same raw_data                    Chat retrieves the same ingested rows
+    同一批报告段落                   报告生成时写入的 report_section 直接可检索
+    Same report_sections             Chunks written at report time are
+                                     immediately searchable
+    同一个向量表                     两种来源共表，靠 owner_type 区分
+    One embeddings table             Distinguished by owner_type
+    同一套登录与用户体系              会话归属基于同一 user_id
+    Same auth and user model         Session ownership uses the same user_id
+    同一套界面骨架                   同一侧栏、同一设计变量、同一套词条
+    Same UI shell                    Same sidebar, tokens and i18n dictionary
+
+  换句话说：报告是「批量结论」，对话是「按需追问」，两者共用同一个知识底座。
+  In short: the report is batch synthesis, the chat is on-demand follow-up —
+  both sit on one knowledge base.
+
+================================================================================
+四、产品一致性工作 / 4. Coherence Work
+================================================================================
+
+4.1 信息架构 / Information architecture
+--------------------------------------------------------------------------------
+  侧栏固定为：个性化配置 / 数据源与入库 / AI 情报报告 / 知识库对话
+  （管理员解锁后追加：后端同步状态）
+  Fixed sidebar: Preferences / Sources & Ingestion / AI Reports / Knowledge
+  Chat, with Backend Sync Status appended after admin unlock.
+
+  两个功能处在同一层级，不再有「主功能 + 附属页面」的割裂感。
+  Both features sit at the same level; there is no "main feature plus
+  bolted-on page" feeling.
+
+4.2 语言 / Language
+--------------------------------------------------------------------------------
+  - 单一词条字典，中英各一份，所有视图共用。
+    One string dictionary per language, shared by all views.
+  - 切换语言只重绘当前视图，不刷新页面，不丢失正在查看的报告或会话。
+    Switching language re-renders the current view without a page reload, so
+    the open report or chat is preserved.
+  - 对话缓存键包含语言，避免中英文答案互相串用。
+    The chat cache key includes the language so answers never cross over.
+
+4.3 权限 / Permissions
+--------------------------------------------------------------------------------
+  - 管理员模式只影响「后端同步状态」这一个模块，不影响报告与对话。
+    Admin mode only gates the backend status module; reports and chat are
+    unaffected.
+  - 所有会话与报告接口都在服务端校验归属，前端隐藏只是表象。
+    Ownership is enforced server-side for both reports and sessions; hiding
+    UI is not the security boundary.
+
+4.4 错误与状态 / Errors and states
+--------------------------------------------------------------------------------
+  - 统一的错误格式化函数，兼容字符串/数组/对象三种 detail 形态。
+    One error formatter handles string / array / object detail shapes.
+  - 空状态、加载中、生成中、缓存命中，四个状态在报告与对话中语义一致。
+    Empty, loading, generating and cache-hit states mean the same thing in
+    both features.
+  - 报告与对话的错误文案同步中英双语。
+    Error copy is bilingual in both features.
+
+4.5 视觉 / Visual
+--------------------------------------------------------------------------------
+  - 报告与对话共用同一套颜色、圆角、间距与字号变量。
+    Both features share the same colour, radius, spacing and type tokens.
+  - 报告为「目录 + 章节」，对话为「会话列表 + 消息流」，两者都是
+    左导航 + 右内容的两栏结构。
+    Reports use TOC + chapters; chat uses session list + message stream.
+    Both follow the same two-column navigation/content pattern.
+
+================================================================================
+五、技术决策与理由 / 5. Decisions and Rationale
+================================================================================
+
+  1. 缓存放在检索与生成之前（cache-aside），而不是生成之后
+     Cache sits before retrieval and generation (cache-aside)
+     理由：重复提问是高频场景，命中缓存可省掉一次向量检索 + 一次 LLM 调用，
+           延迟与成本都显著下降。
+     Why: repeated questions are common; a hit skips both a vector search and
+          an LLM call, cutting latency and cost.
+
+  2. 缓存键包含 session_id 与语言
+     Cache key includes session_id and language
+     理由：同一问题在不同会话的上下文不同，答案可能不同；语言不同更不能复用。
+     Why: the same question in different sessions has different context and may
+          warrant a different answer; different languages must never share.
+
+  3. 短期上下文用 Redis List + LTRIM，而不是每次读全量历史
+     Short-term context uses a Redis List with LTRIM
+     理由：多轮对话只需要最近若干轮；LTRIM 让内存占用有上界。
+     Why: multi-turn chat only needs recent turns; LTRIM bounds memory use.
+
+  4. 检索同时覆盖报告段落与原始数据
+     Retrieval spans both report sections and raw data
+     理由：报告是压缩后的结论，原始数据是细节；只查一种会丢失另一侧的
+           信息密度。
+     Why: reports are compressed conclusions, raw data holds detail; querying
+          only one side loses the other's information density.
+
+  5. 引用返回 owner_id 而不是只给编号
+     Citations return owner_id, not just numbers
+     理由：编号只对当次回答有效，owner_id 才能让前端跳回具体报告段落或新闻。
+     Why: numbers are only meaningful within one answer; owner_id lets the UI
+          jump back to the exact section or article.
+
+  6. Prompt 明确禁止编造，并要求资料不足时说明
+     The prompt explicitly forbids fabrication and requires stating gaps
+     理由：B 端情报场景下，编造比「不知道」代价高得多。
+     Why: in B2B intelligence, fabricated content is far more costly than an
+          admitted gap.
+
+================================================================================
+六、实施与验证 / 6. Implementation and Verification
+================================================================================
+
+6.1 验证结果 / Verification results
+--------------------------------------------------------------------------------
+  以下为 2026-11-11 实际查询与实测行为。
+  Results below are from live queries and observed behaviour on 2026-11-11.
+
+  检查项 / Check                        结果 / Result
+  ------------------------------------  ---------------------------------------
+  会话数 / chat sessions                8
+  消息数 / chat messages                12（user 6 · ai 6）
+  分区路由 / partition routing          chat_messages_2026_10 = 10
+                                        chat_messages_2026_11 = 2
+                                        → 跨月数据自动进入不同分区
+  向量来源分布 / embeddings by owner    raw_data 379 · report_section 330
+                                        （合计 709）
+  检索条数 / retrieval top_k            6（报告段落 + 原始数据混合）
+  缓存 TTL / cache TTL                  上下文 3600s · 问答结果 1800s
+  多轮记忆 / short-term memory          最近 10 轮（LTRIM 保留）
+  Prompt 历史窗口 / history window      最近 6 轮
+
+  复现命令 / Reproduce:
+    SELECT count(*) FROM chat_sessions;
+    SELECT sender_type, count(*) FROM chat_messages GROUP BY sender_type;
+    SELECT tableoid::regclass, count(*) FROM chat_messages GROUP BY tableoid;
+    SELECT owner_type, count(*) FROM embeddings GROUP BY owner_type;
+
+6.2 缓存命中验证 / Cache-hit verification
+--------------------------------------------------------------------------------
+  步骤 / Steps:
+    1. 新建会话，提问「电机原材料价格最近的走势如何？」
+       Create a session and ask about recent motor raw-material prices.
+    2. 首次返回 cached=false，后端日志出现一次 embeddings + 一次 chat
+       completion 调用。
+       First answer returns cached=false; logs show one embeddings call and one
+       chat completion call.
+    3. 在同一会话重复同一问题，返回 cached=true，日志无新的模型调用。
+       Repeating the same question returns cached=true with no new model calls.
+    4. 前端在答案下方显示「本次结果命中 Redis 缓存」。
+       The UI appends the cache-hit note under the answer.
+
+  这一步是「缓存优先策略」的直接证据，答辩时可现场演示。
+  This is direct evidence of the cache-first strategy and can be demonstrated
+  live during the review.
+
+6.3 引用可追溯验证 / Citation traceability
+--------------------------------------------------------------------------------
+  - 回答中的 [n] 与返回的 references 数组一一对应。
+    The [n] markers map one-to-one to the references array.
+  - references 返回的是 embeddings.owner_id，可直接定位到
+    report_sections.section_id 或 raw_data.data_id。
+    references carry embeddings.owner_id, which resolves to either
+    report_sections.section_id or raw_data.data_id.
+  - 报告侧的溯源（report_sources）与对话侧的引用（owner_id）指向同一批原始数据，
+    形成闭环。
+    Report-side traceability (report_sources) and chat-side citations
+    (owner_id) point at the same underlying rows, closing the loop.
+
+================================================================================
+七、遇到的问题与解决 / 7. Issues and Fixes
+================================================================================
+
+  问题 1 / Issue 1：中英文答案串用
+  ------------------------------------------------------------------------------
+  现象：切换语言后提问，返回的仍是另一种语言的答案。
+  Symptom: after switching languages, answers came back in the other language.
+  原因：缓存键只包含 session_id 与问题哈希，没有语言维度。
+  Cause: the cache key only had session_id and the question hash.
+  解决：缓存键加入 lang（chat:a:{session_id}:{lang}:{hash}），并在 Prompt
+        中显式要求「只用当前语言回答」。
+  Fix: added lang to the cache key and instructed the model explicitly to
+       answer only in the current language.
+
+  问题 2 / Issue 2：多轮上下文无限增长
+  ------------------------------------------------------------------------------
+  现象：长会话下 Prompt 越来越长，延迟上升，偶发超出上下文窗口。
+  Symptom: long sessions produced ever-growing prompts and occasional context
+           overflow.
+  原因：每轮都把全部历史拼进 Prompt。
+  Cause: every turn concatenated the full history.
+  解决：Redis 侧用 LTRIM 只保留最近 10 轮；Prompt 侧只取最近 6 轮。
+  Fix: LTRIM keeps the last 10 turns in Redis; the prompt uses only the last 6.
+
+  问题 3 / Issue 3：越权读取他人会话
+  ------------------------------------------------------------------------------
+  现象：只要知道 session_id 就能读消息。
+  Symptom: anyone with a session_id could read its messages.
+  原因：接口只按 session_id 查询，没有校验归属。
+  Cause: endpoints queried by session_id without an ownership check.
+  解决：所有会话相关接口先取会话并比对 user_id，不匹配返回 404。
+  Fix: every session endpoint loads the session and compares user_id, returning
+       404 on mismatch.
+
+  问题 4 / Issue 4：报告与对话像两个独立产品
+  ------------------------------------------------------------------------------
+  现象：早期对话页自成一个页面，导航、空状态、错误提示都与报告页不一致。
+  Symptom: the chat page initially looked like a separate product, with
+           different navigation, empty states and error copy.
+  原因：两个功能是分两批做的，各自写了一套界面代码。
+  Cause: the features were built in two passes with duplicated UI code.
+  解决：抽出共享的状态文案与错误格式化函数；统一侧栏层级与设计变量；
+        报告与对话都改为「左导航 + 右内容」的两栏结构。
+  Fix: extracted shared state copy and the error formatter; unified sidebar
+       hierarchy and design tokens; both views now use the same
+       navigation/content two-column layout.
+
+================================================================================
+八、下周计划 / 8. Next Week
+================================================================================
+
+  1. 对话侧增加「从报告直接跳转提问」的入口，强化两个功能的连贯性。
+     Add an entry point to ask directly from a report, strengthening the link
+     between the two features.
+  2. 引用编号做成可点击，跳回对应报告段落或原始新闻。
+     Make citation numbers clickable, jumping back to the section or article.
+  3. 对 RAG 检索做一次质量评估：准备 20 个问题，人工标注命中与引用正确率。
+     Run a retrieval quality pass: 20 questions with manually labelled hit and
+     citation accuracy.
+  4. 补对话侧的单元测试：缓存命中、归属校验、语言隔离。
+     Add tests for cache hits, ownership checks and language isolation.
+
+================================================================================
+附录 A：核心流程代码 / Appendix A: Key Pipeline Code
+================================================================================
+
+# 1) 缓存优先 / Cache-first
+cache_key = f"chat:a:{session_id}:{lang}:{sha256(question)[:16]}"
+cached = await get_cached_answer(cache_key)
+if cached is not None:
+    return {**cached, "cached": True}
+
+# 2) 短期上下文 / Short-term context
+history = await get_chat_context(str(session_id))
+
+# 3) 向量检索 / Vector retrieval
+query_vec = (await embed_texts([question]))[0]
+hits = await store.search(
+    query_vec, top_k=6, owner_types=["report_section", "raw_data"]
+)
+
+# 4) Prompt 拼装 / Prompt assembly
+retrieved = "\n\n".join(
+    f"[{i + 1}] ({h.owner_type}) {h.chunk_text}" for i, h in enumerate(hits)
+)
+user_prompt = (
+    f"【历史对话】\n{history_text}\n\n"
+    f"【检索到的资料】\n{retrieved}\n\n"
+    f"【用户问题】\n{question}"
+)
+answer = await chat_complete(system_prompt, user_prompt)
+
+# 5) 三处回写 / Write back to three places
+await self._persist_messages(session_id, question, answer)   # PostgreSQL
+await append_chat_context(str(session_id), {"role": "ai", "content": answer})
+await set_cached_answer(cache_key, result)                    # Redis
+
+# 6) 上下文保留最近 10 轮 / Keep the last 10 turns
+pipe.rpush(key, json.dumps(turn, ensure_ascii=False))
+pipe.ltrim(key, -keep, -1)
+pipe.expire(key, settings.redis_chat_context_ttl)
+
+================================================================================

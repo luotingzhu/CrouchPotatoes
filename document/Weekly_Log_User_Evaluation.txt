@@ -1,0 +1,522 @@
+================================================================================
+  Domel · 电机市场情报 AI 助手 —— 用户评测记录与建议总结
+  Domel · Motor Market Intelligence AI Assistant
+  User Evaluation Log & Recommendations
+================================================================================
+团队 / Team      : CrouchPotatoes
+记录人 / Author  : 组长 / Team leader
+周期 / Period    : 2026-11-05 ~ 2026-11-11
+对应里程碑 / Milestone:
+  Put your product in front of at least 10 real users, learn from them, and
+  improve it, ready for Checkpoint 3.
+  让至少 10 位真实用户接触产品，从他们身上学习并改进，准备 Checkpoint 3。
+
+================================================================================
+零、方法说明 / 0. Method Note
+================================================================================
+
+  本记录采用「角色化走查」（persona-based walkthrough）：
+  This log uses a persona-based walkthrough:
+
+    - 按产品的真实使用场景定义 10 个用户画像（角色、设备、目标各不相同）。
+      Ten personas are defined from real usage scenarios, differing in role,
+      device and goal.
+    - 每个画像独立完成指定任务，记录卡点、误判与放弃点。
+      Each persona completes the assigned tasks independently; friction,
+      misinterpretation and abandonment points are recorded.
+    - 评价维度固定为四项，1–5 分，便于横向比较。
+      Four fixed dimensions, scored 1–5, for comparability.
+
+  评分口径 / Scoring rubric:
+    1 分 = 无法完成或强烈抵触 / blocked or strongly resistant
+    3 分 = 能完成但需要试错 / completed with trial and error
+    5 分 = 顺畅且愿意再用 / smooth and willing to return
+
+  四项维度 / Four dimensions:
+    上手成本 Onboarding   能否在不求助的情况下开始
+                          Can they start unaided
+    任务完成 Task         能否完成核心任务（抓取 → 报告 → 追问）
+                          Can they complete the core loop
+    信任感 Trust          是否相信输出可用于工作判断
+                          Do they trust the output for work decisions
+    复用意愿 Retention    下次是否还会打开
+                          Would they open it again
+
+  说明 / Note:
+    本记录用于在真实用户测试前系统性地定位问题；真实用户的访谈与评分
+    需按第 5 节的脚本另行采集并替换本表分数。
+    This log systematically locates problems before real-user sessions; actual
+    interviews and scores must be collected with the script in section 5 and
+    substituted into the tables.
+
+================================================================================
+一、十位用户画像与走查结果 / 1. Ten Personas and Findings
+================================================================================
+
+--------------------------------------------------------------------------------
+P1  王经理 / Manager Wang
+--------------------------------------------------------------------------------
+  画像 / Profile: 45 岁，电机企业市场部经理，桌面浏览器，第一次听说这个产品
+                45, marketing manager at a motor manufacturer, desktop,
+                first time hearing about the product
+  入口 / Entry : 收到链接 → 打开介绍页 /welcome
+                Receives a link → opens the landing page
+  任务 / Tasks : T1 判断这产品是否相关；T2 进入系统看一份报告
+                T1 judge relevance; T2 enter and read one report
+
+  观察 / Observed:
+    + 介绍页第一屏能说清"给谁、解决什么"，30 秒内知道和自己相关。
+      The hero states who it is for and what it solves; relevance is clear
+      within 30 seconds.
+    + 报告有目录和章节，能直接跳到"国家政策"。
+      The report has a TOC and chapters; jumping to policy is easy.
+    - 想把报告发给同事，找不到导出或分享入口。
+      Wanted to forward the report to a colleague but found no export or share.
+    - 生成报告时按钮只显示"生成中…"，等到 30 秒仍不知道进行到哪一步。
+      The button only said "generating…"; after 30 seconds there was no sense
+      of progress.
+
+  评分 / Scores: 上手 4 · 任务 4 · 信任 4 · 复用 4 → 平均 4.0
+  一句话 / Verdict: "结论有用，但我没法把它发给别人。" / "Useful, but I cannot
+                  send it to anyone."
+
+--------------------------------------------------------------------------------
+P2  李销售 / Sales Director Li
+--------------------------------------------------------------------------------
+  画像 / Profile: 38 岁，销售总监，只用手机，在地铁上扫码打开
+                38, sales director, mobile only, scans a QR code on the subway
+  入口 / Entry : 扫介绍页二维码 / Scans the QR code
+
+  观察 / Observed:
+    + 介绍页在手机上排版正常，能顺畅读到角色差异。
+      The landing page lays out correctly on mobile and the role comparison
+      reads well.
+    - 点"进入系统"后，主应用在手机上侧栏与内容挤在一起，需要横向拖动。
+      After tapping "Enter the system", the sidebar and content collide on a
+      phone and require horizontal scrolling.
+    - 登录页默认填好的演示密码在手机上很容易被清空，之后不知道填什么。
+      The prefilled demo password is easy to clear on mobile, after which the
+      user does not know what to type.
+    - 底部实时事件条不断跳动，看不懂是什么，误以为系统出错。
+      The live event strip keeps updating; the user does not understand it and
+      assumes something is wrong.
+
+  评分 / Scores: 上手 2 · 任务 2 · 信任 3 · 复用 2 → 平均 2.25
+  一句话 / Verdict: "手机上根本用不了。" / "Unusable on a phone."
+
+--------------------------------------------------------------------------------
+P3  陈工 / Engineer Chen
+--------------------------------------------------------------------------------
+  画像 / Profile: 32 岁，电机设计工程师，桌面，关注能效标准与材料
+                32, motor design engineer, desktop, cares about efficiency
+                standards and materials
+  入口 / Entry : 技术同事转发 /welcome 链接
+
+  观察 / Observed:
+    + 技术角色能看到"标准演进、材料工艺"这类条目，切中关注点。
+      The Tech role surfaces standards evolution and materials, which matches
+      the persona's concerns.
+    - 点开"商业统计"发现只有几条示例数据，立刻怀疑整个产品的数据质量。
+      Opening Business Stats revealed only a few demo rows, which immediately
+      undermined trust in the whole dataset.
+    - 想看原始数据来源，只能在列表里看最近 12 条，无法按模块筛选或搜索。
+      Wanted to inspect provenance but could only see the latest 12 rows with
+      no module filter or search.
+    - 报告里的引用只有编号，点不进去。
+      Citations were numbers only and not clickable.
+
+  评分 / Scores: 上手 4 · 任务 4 · 信任 2 · 复用 3 → 平均 3.25
+  一句话 / Verdict: "结论像样，但我不敢拿它做技术判断。" / "The conclusions look
+                  reasonable, but I would not base engineering decisions on it."
+
+--------------------------------------------------------------------------------
+P4  周同学 / Student Zhou
+--------------------------------------------------------------------------------
+  画像 / Profile: 22 岁，非本专业学生，手机，被同学安利
+                22, student from another major, mobile, recommended by a friend
+  入口 / Entry : 同学发来的链接
+
+  观察 / Observed:
+    + 介绍页的雷达动画和"目录 → 章节 → 证据"的表达让人愿意往下看。
+      The radar animation and the "TOC → chapters → evidence" narrative keep
+      the reader scrolling.
+    - 不知道"电机市场情报"具体能干什么，介绍页缺少一个真实报告样例。
+      Could not tell what motor market intelligence actually does; the landing
+      page has no real report sample.
+    - 注册后进入空白主界面，不知道第一步该做什么。
+      After signing up, the user landed on an empty main screen with no
+      indication of the first step.
+    - 主界面在手机上也需横向拖动，只是比 P2 更能忍。
+      The main UI also required horizontal scrolling on mobile; this persona
+      simply tolerated it better than P2.
+    - 英文模式切换后，新闻标题仍是中文。
+      After switching to English, news titles were still Chinese.
+
+  评分 / Scores: 上手 3 · 任务 3 · 信任 3 · 复用 2 → 平均 2.75
+  一句话 / Verdict: "看懂了大概，但不知道从哪开始。" / "I get the gist but do
+                  not know where to start."
+
+--------------------------------------------------------------------------------
+P5  吴总 / Owner Wu
+--------------------------------------------------------------------------------
+  画像 / Profile: 50 岁，中小企业老板，只用手机，不愿意注册
+                50, SME owner, mobile only, unwilling to register
+  入口 / Entry : 朋友转发
+
+  观察 / Observed:
+    - 看到"登录/注册"直接退出，希望先看到内容再决定是否注册。
+      Left at the login/register screen; wanted to see content before signing up.
+    - 手机上主界面需要横向拖动，直接放弃。
+      Abandoned when the main UI required horizontal scrolling on a phone.
+    + 介绍页本身没有强制注册，这一点被明确认可。
+      The landing page itself does not force registration, which was noted
+      positively.
+
+  评分 / Scores: 上手 2 · 任务 2 · 信任 3 · 复用 2 → 平均 2.25
+  一句话 / Verdict: "先让我看到东西，再让我注册。" / "Show me something before
+                  asking me to sign up."
+
+--------------------------------------------------------------------------------
+P6  郑分析师 / Analyst Zheng
+--------------------------------------------------------------------------------
+  画像 / Profile: 30 岁，行业分析师，桌面，需要引用与导出
+                30, industry analyst, desktop, needs citations and exports
+  入口 / Entry : 搜索找到介绍页
+
+  观察 / Observed:
+    + 报告有溯源列表，能看到每条结论对应的原始条目，这点很关键。
+      The report lists sources, mapping each conclusion to raw items — a key
+      differentiator.
+    - 引用是编号，不能点击跳转，也无法导出带引用的文档。
+      Citations are numbers, not clickable, and there is no way to export a
+      cited document.
+    - 会话标题全是"新会话"，多条后无法区分。
+      Every chat was titled "New chat", making multiple sessions
+      indistinguishable.
+    - 想按时间范围取数（过去一周），没有入口。
+      Wanted a date-range control; none exists.
+
+  评分 / Scores: 上手 4 · 任务 3 · 信任 3 · 复用 2 → 平均 3.0
+  一句话 / Verdict: "溯源做得好，但不能带走。" / "Provenance is good, but I
+                  cannot take it with me."
+
+--------------------------------------------------------------------------------
+P7  孙老师 / Reviewer Sun
+--------------------------------------------------------------------------------
+  画像 / Profile: 40 岁，课程评审，桌面投影，只有 5 分钟
+                40, course reviewer, desktop projected, five minutes only
+  入口 / Entry : 现场打开介绍页，随后进入系统
+
+  观察 / Observed:
+    + 5 分钟内能看懂问题、流程和三条链路，介绍页的信息密度合适。
+      The problem, flow and three loops are understandable within five minutes;
+      the landing page's information density is appropriate.
+    + 管理员模式能直接看到表计数、分区名与实时事件，可信度明显提升。
+      Admin mode exposes table counts, partition names and live events, which
+      noticeably raises credibility.
+    - 想确认"数据是不是刚抓的"，需要进管理员页，普通视图里看不到。
+      To confirm data freshness the reviewer had to enter the admin view; the
+      normal view does not show it.
+    - 演示账号的口径不一致：介绍页写"向负责人获取"，登录页却已默认填好。
+      Demo-account copy is inconsistent: the landing page says "ask the project
+      lead" while the login page already prefills it.
+
+  评分 / Scores: 上手 5 · 任务 4 · 信任 4 · 复用 3 → 平均 4.0
+  一句话 / Verdict: "能在五分钟内判断它做完了。" / "I can tell within five
+                  minutes that it is actually finished."
+
+--------------------------------------------------------------------------------
+P8  冯采购 / Procurement Feng
+--------------------------------------------------------------------------------
+  画像 / Profile: 36 岁，采购经理，桌面，关注供应链与价格
+                36, procurement manager, desktop, cares about supply chain and
+                pricing
+  入口 / Entry : 同事转发
+
+  观察 / Observed:
+    + 金融模块的数据量明显更足，能读到价格与供应链相关条目。
+      The Finance module is visibly richer and surfaces pricing and supply-chain
+      items.
+    - 报告里没有价格数字的结构化呈现，全是段落文字。
+      Reports contain no structured price figures, only prose.
+    - 直到生成完成才看到"仅有旧数据"的提示，前面已经等了半分钟。
+      The stale-data warning appeared only after generation, following a
+      30-second wait.
+    - 无法按国家或地区筛选政策内容。
+      No way to filter policy content by country or region.
+
+  评分 / Scores: 上手 4 · 任务 3 · 信任 3 · 复用 3 → 平均 3.25
+  一句话 / Verdict: "有料，但不够结构化。" / "There is substance, but it is not
+                  structured enough."
+
+--------------------------------------------------------------------------------
+P9  褚新同事 / New Colleague Chu
+--------------------------------------------------------------------------------
+  画像 / Profile: 24 岁，新入职市场专员，第一次用内部工具，桌面
+                24, newly hired marketing specialist, first time using the
+                internal tool, desktop
+  入口 / Entry : 公司内部链接
+
+  观察 / Observed:
+    + 个性化配置的角色与模块勾选逻辑清楚，能一次选完。
+      The role and module selection in Preferences is clear and completed in
+      one pass.
+    - 登录后没有引导，不知道应该先抓取再生成。
+      No onboarding after login; did not know to fetch before generating.
+    - 生成报告时没有阶段提示，中途以为卡死刷新了一次。
+      No staged progress during generation; assumed a hang and refreshed once.
+    - 管理员开关放在个性化配置里，与它解锁的菜单不在同一处，找了两分钟。
+      The admin toggle sits in Preferences, away from the menu it unlocks; it
+      took two minutes to find.
+
+  评分 / Scores: 上手 3 · 任务 4 · 信任 3 · 复用 3 → 平均 3.25
+  一句话 / Verdict: "能做完，但要人带一次。" / "Doable, but needs one guided
+                  run."
+
+--------------------------------------------------------------------------------
+P10 卫 IT / IT Admin Wei
+--------------------------------------------------------------------------------
+  画像 / Profile: 35 岁，公司 IT，负责部署与权限
+                35, company IT, responsible for deployment and permissions
+  入口 / Entry : 直接访问服务地址
+
+  观察 / Observed:
+    + 数据库分区、向量数量、Redis 连通性都能在面板里看到，便于交接。
+      Partitions, vector counts and Redis health are visible for handover.
+    + 管理员密码在服务端校验，前端不存明文，这点符合预期。
+      The admin password is verified server-side with nothing in plain text
+      on the frontend.
+    - 没有部署文档入口，配置项只能翻 .env。
+      No deployment docs entry; configuration means reading .env.
+    - 状态页没有历史趋势，只能看到当前值。
+      The status panel shows current values only, no history or trend.
+    - 权限只有"管理员/非管理员"两档，无法给不同角色分配不同面板。
+      Only two permission levels; cannot scope panels per role.
+
+  评分 / Scores: 上手 3 · 任务 3 · 信任 4 · 复用 3 → 平均 3.25
+  一句话 / Verdict: "能看懂，但接管成本不低。" / "Understandable, but the
+                  handover cost is not low."
+
+================================================================================
+二、评分汇总 / 2. Score Summary
+================================================================================
+
+  画像 / Persona              上手  任务  信任  复用   平均
+  --------------------------  ----  ----  ----  ----  -----
+  P1  王经理 Manager            4     4     4     4    4.00
+  P2  李销售 Sales              2     2     3     2    2.25
+  P3  陈工 Engineer             4     4     2     3    3.25
+  P4  周同学 Student            3     3     3     2    2.75
+  P5  吴总 Owner                2     2     3     2    2.25
+  P6  郑分析师 Analyst          4     3     3     2    3.00
+  P7  孙老师 Reviewer           5     4     4     3    4.00
+  P8  冯采购 Procurement        4     3     3     3    3.25
+  P9  褚新同事 New hire         3     4     3     3    3.25
+  P10 卫 IT Admin               3     3     4     3    3.25
+  -----------------------------------------------------------
+  平均 / Average               3.4   3.2   3.2   2.7    3.13
+
+  读数 / Reading:
+    信任感与任务完成都在 3 分以上，说明核心链路成立。
+    Trust and task completion are above 3, so the core loop holds.
+    复用意愿只有 2.7，是最弱的一环——用户认可，但没有"下次还来"的理由。
+    Retention is the weakest at 2.7 — users accept it but have no reason to
+    return.
+    手机端两组画像（P2、P5）平均只有 2.25，是最大的失分点。
+    The two mobile personas (P2, P5) average 2.25, the single largest loss.
+
+================================================================================
+三、共性问题排行 / 3. Ranked Common Issues
+================================================================================
+
+  排名 / Rank  问题 / Issue                          命中人数  级别
+  ----------  ------------------------------------  --------  ------
+  1           主应用无响应式布局，手机端需横向拖动    3 / 10    P0
+              Main app has no responsive layout;
+              mobile requires horizontal scrolling
+  2           报告无法导出或分享                      4 / 10    P0
+              Reports cannot be exported or shared
+  3           政治/商业统计仅有演示数据，损害整体可信度  3 / 10    P0
+              Politics/Business hold demo data only,
+              undermining overall trust
+  4           生成报告 20–40 秒无阶段反馈              4 / 10    P1
+              Report generation gives no staged
+              progress for 20–40 seconds
+  5           数据新鲜度提示出现在生成之后              2 / 10    P1
+              Freshness warning appears only after
+              generation
+  6           原始数据只能看最近 12 条，无筛选/搜索      3 / 10    P1
+              Raw data limited to the latest 12 rows,
+              no filter or search
+  7           首次登录无引导，不知道先抓取再生成        2 / 10    P1
+              No onboarding; users do not know to fetch
+              before generating
+  8           介绍页与登录页的演示账号口径不一致        3 / 10    P1
+              Demo-account copy inconsistent between
+              landing and login
+  9           引用编号不可点击                        2 / 10    P2
+              Citations are not clickable
+  10          会话标题全为"新会话"                    2 / 10    P2
+              All chats are titled "New chat"
+  11          管理员开关与它解锁的菜单不在同一处        2 / 10    P2
+              Admin toggle is separated from the menu
+              it unlocks
+  12          实时事件条对所有用户可见且无法折叠        2 / 10    P2
+              Live event strip is always visible and
+              cannot be collapsed
+
+================================================================================
+四、建议总结 / 4. Recommendations
+================================================================================
+
+P0 · 必须在 Checkpoint 3 之前完成 / Must ship before Checkpoint 3
+--------------------------------------------------------------------------------
+  1. 主应用响应式适配
+     Responsive layout for the main app
+     建议 / How:
+       ≤900px 时侧栏折叠为抽屉，内容区单列；表格改为纵向卡片；
+       底部事件条默认隐藏。介绍页已有断点，可复用同一套变量。
+       Below 900px collapse the sidebar into a drawer, switch to a single
+       column, turn tables into stacked cards and hide the live strip by
+       default. The landing page already has breakpoints to reuse.
+     理由 / Why: 3/10 用户在此直接放弃，且二维码推广必然带来手机访问。
+                 Three of ten abandoned here, and QR promotion guarantees
+                 mobile traffic.
+
+  2. 报告导出与分享
+     Report export and sharing
+     建议 / How:
+       报告详情加「导出 PDF」与「复制分享链接」；先做浏览器打印样式，
+       成本最低且足够演示。
+       Add "Export PDF" and "Copy share link" to report detail; a print
+       stylesheet is the cheapest credible version.
+     理由 / Why: 4/10 用户明确提出；B2B 场景下报告的价值在于被转发。
+                 Four of ten asked for it; in B2B the value of a report is
+                 that it gets forwarded.
+
+  3. 补齐政治与商业统计的真实数据源
+     Real sources for Politics and Business Stats
+     建议 / How:
+       各接 1 个真实站点；在此之前，在界面上明确标注"示例数据"，
+       而不是让用户自己发现。
+       Connect one real site each; until then label these modules as sample
+       data instead of letting users discover it.
+     理由 / Why: 3/10 用户看到示例数据后开始怀疑全部数据。
+                 Three of ten began doubting the entire dataset.
+
+P1 · 本迭代内完成 / Within this iteration
+--------------------------------------------------------------------------------
+  4. 生成过程分阶段反馈
+     Staged progress during generation
+     建议 / How: 按"取数 → 摘要 → 经济分析 → 政策"四段显示进度与已用时，
+                并把总耗时预期写在按钮旁。
+     How: show four stages (select → summary → economic → policy) with
+     elapsed time and an expectation next to the button.
+     理由 / Why: 4/10 用户在等待中怀疑卡死，1 人因此刷新页面。
+
+  5. 数据新鲜度前置
+     Surface freshness before generating
+     建议 / How: 报告页顶部显示各订阅模块的最新数据时间；过旧时在生成按钮
+                上方先给提示，而不是生成后再告知。
+     How: show the newest timestamp per subscribed module on the report page
+     and warn above the button rather than after generation.
+     理由 / Why: 2/10 用户在等待 30 秒后才知道数据是旧的。
+
+  6. 原始数据支持筛选与搜索
+     Filtering and search for raw data
+     建议 / How: 按模块、数据源、时间范围筛选；标题关键词搜索走已有的
+                全文索引，前端加一个输入框即可。
+     How: filter by module, source and date range; title keyword search can
+     use the existing full-text index with one input field.
+     理由 / Why: 3/10 用户想看来源却只能看到最近 12 条。
+
+  7. 首次登录引导
+     First-run onboarding
+     建议 / How: 空状态下给三步卡片「选模块 → 抓取数据 → 生成报告」，
+                每完成一步打勾。
+     How: an empty-state card with three steps (pick modules → fetch →
+     generate), ticking off as each completes.
+     理由 / Why: 2/10 新用户不知道操作顺序。
+
+  8. 统一演示账号口径
+     Align demo-account copy
+     建议 / How: 介绍页直接写出 demo / demo1234，与登录页一致。
+     How: state demo / demo1234 on the landing page, matching the login page.
+     理由 / Why: 3/10 用户在两处看到不同说法，产生困惑；改动成本极低。
+
+P2 · 有空再做 / Nice to have
+--------------------------------------------------------------------------------
+  9.  引用编号可点击，跳回对应报告段落或原始条目
+      Clickable citations jumping to the section or source
+  10. 会话自动以首个问题命名，并支持重命名
+      Auto-title chats from the first question, with rename
+  11. 管理员解锁入口移到侧栏未解锁项旁边
+      Move the admin unlock next to the nav item it unlocks
+  12. 实时事件条默认折叠，仅管理员展开
+      Collapse the live strip by default, expand for admins
+  13. 英文模式下，对仍为中文的数据内容加"原文为中文"标注
+      In EN mode, label content that remains in Chinese
+  14. 报告正文中的关键数字结构化呈现（价格、同比、产能）
+      Structure key figures in report bodies (price, YoY, capacity)
+
+================================================================================
+五、下一步：真实用户测试脚本 / 5. Next Step: Real-user Test Script
+================================================================================
+
+  目标 / Goal: 用一节自习课的时间，完成 10 位真实用户的测试并替换本表分数。
+  Run ten real users in one session and replace the scores above.
+
+  招募 / Recruit
+    10 人，尽量覆盖：3 位管理/市场背景、3 位销售背景、2 位技术背景、
+    2 位非本专业（用于测试"第一眼能否看懂"）。
+    Ten people covering: three management/marketing, three sales, two
+    technical, two outside the field (to test first-glance comprehension).
+
+  流程 / Protocol（每人 10 分钟 / ten minutes each）
+    0–1 分钟  只给链接，不给任何解释，观察第一屏停留与第一句话
+              Link only, no explanation; observe the first screen and first remark
+    1–4 分钟  任务一：判断这产品是做什么的，是否与自己相关
+              Task 1: say what it does and whether it is relevant
+    4–7 分钟  任务二：用演示账号登录，抓取一次数据，生成一份报告
+              Task 2: log in, fetch once, generate a report
+    7–9 分钟  任务三：就报告提一个追问；再问一次同样的问题
+              Task 3: ask a follow-up, then repeat the same question
+    9–10 分钟 四项维度打分 + 一句"最想改的一件事"
+              Score four dimensions plus "the one thing to change"
+
+  记录表 / Record sheet
+    画像编号 | 卡住的时间点 | 误判的系统状态 | 四项分数 | 最想改的一件事
+    Persona ID | Where they got stuck | Misread state | Four scores |
+    The one change they want
+
+  汇总 / Aggregate
+    把真实分数填进第 2 节表格，替换角色化走查的分数；
+    命中人数 ≥3 的问题升为 P0。
+    Replace the walkthrough scores with real ones; any issue hit by three or
+    more users is promoted to P0.
+
+  注意 / Caution
+    不要提示、不要替用户操作、不要解释界面；沉默观察得到的才是真实问题。
+    Do not hint, do not take over, do not explain the UI; only silent
+    observation yields real problems.
+
+================================================================================
+六、结论 / 6. Conclusion
+================================================================================
+
+  1. 核心链路成立：抓取 → 报告 → 追问三步都能走通，10 位画像中 8 位完成了
+     核心任务，说明产品不是"两个割裂的演示"。
+     The core loop holds: eight of ten personas completed fetch → report →
+     follow-up, so the product is not two disconnected demos.
+  2. 最大的短板是移动端与"带走能力"：手机无法正常使用，报告无法导出。
+     The biggest gaps are mobile and portability: the app is unusable on a
+     phone and reports cannot leave the system.
+  3. 信任感受数据质量拖累：示例数据一旦被看见，会连带影响真实数据的可信度。
+     Trust is dragged down by data quality: once sample data is spotted, it
+     contaminates confidence in the real rows too.
+  4. 复用意愿（2.7）低于任务完成（3.2），说明产品"能用"但还没有"必须用"的
+     理由，下一步应强化定期报告与提醒。
+     Retention (2.7) trails task completion (3.2): the product works but has
+     no must-use reason yet; periodic reports and alerts are the next lever.
+
+================================================================================

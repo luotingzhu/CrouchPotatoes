@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title data-i18n="app.title">Domel 电机市场情报 AI 助手</title>
+<title data-i18n="app.title">FinBrief 电机市场情报 AI 助手</title>
 <style>
   :root{
     --navy:#1F3A5F; --accent:#2E6DA4; --accent-soft:#E8F0F9;
@@ -31,7 +31,8 @@
   #loginScreen{display:grid;place-items:center;min-height:100vh;padding:32px 20px}
   .authcard{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);
     width:100%;max-width:460px;padding:32px}
-  .brand{display:flex;align-items:baseline;gap:8px;margin-bottom:4px}
+  .brand{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+  .brand-logo{width:26px;height:26px;border-radius:7px;object-fit:contain;background:#fff;flex:none}
   .brand .mark{font-weight:700;font-size:21px;color:var(--navy);letter-spacing:-.3px}
   .brand .tag{font-size:11.5px;color:var(--faint)}
   .sub{color:var(--grey);font-size:13px;margin:6px 0 22px}
@@ -184,7 +185,7 @@
     <button type="button" data-lang="en">EN</button>
   </div>
   <div class="authcard">
-    <div class="brand"><span class="mark">Domel</span><span class="tag" data-i18n="brand.tag"></span></div>
+    <div class="brand"><img class="brand-logo" src="/static/logo.png" alt="FinBrief"><span class="mark">FinBrief</span><span class="tag" data-i18n="brand.tag"></span></div>
     <p class="sub" data-i18n="auth.subtitle"></p>
 
     <div class="tabs">
@@ -216,7 +217,7 @@
 <div id="appScreen" hidden>
   <header class="topbar">
     <div class="inner">
-      <div class="brand"><span class="mark" style="font-size:17px">Domel</span><span class="tag" data-i18n="brand.tag.short"></span></div>
+      <div class="brand"><img class="brand-logo" src="/static/logo.png" alt="FinBrief" style="width:24px;height:24px"><span class="mark" style="font-size:17px">FinBrief</span><span class="tag" data-i18n="brand.tag.short"></span></div>
       <div class="spacer"></div>
       <div class="langswitch" id="langSwitchApp">
         <button type="button" data-lang="zh">CN</button>
@@ -272,7 +273,7 @@ const fmtTime = (iso) => {
  * ============================================================ */
 const I18N = {
   zh: {
-    'app.title': 'Domel 电机市场情报 AI 助手',
+    'app.title': 'FinBrief 电机市场情报 AI 助手',
     'brand.tag': '电机市场情报 AI 助手',
     'brand.tag.short': '市场情报 AI 助手',
     'auth.subtitle': '多源数据聚合 · AI 定制报告 · 基于知识库的多轮问答',
@@ -359,7 +360,7 @@ const I18N = {
     'val.registerFailed': '注册失败，请稍后重试'
   },
   en: {
-    'app.title': 'Domel Motor Market Intelligence AI',
+    'app.title': 'FinBrief Motor Market Intelligence AI',
     'brand.tag': 'Motor Market Intelligence AI',
     'brand.tag.short': 'Market Intelligence AI',
     'auth.subtitle': 'Multi-source aggregation · AI-crafted reports · Knowledge-base Q&A',

@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Domel · 电机市场情报 AI 助手</title>
-<meta name="description" content="Domel 聚合新闻、政策、商业统计与金融数据，按角色生成可溯源的市场情报报告，并支持基于知识库的多轮追问。">
+<title>FinBrief · 电机市场情报 AI 助手</title>
+<meta name="description" content="FinBrief 聚合新闻、政策、商业统计与金融数据，按角色生成可溯源的市场情报报告，并支持基于知识库的多轮追问。">
 <style>
   :root{
     --ink:#0B1520; --ink-2:#122436; --paper:#F5F4F0; --paper-2:#ECEAE3;
@@ -27,7 +27,8 @@
   .nav{position:absolute;top:0;left:0;right:0;z-index:5;
     display:flex;align-items:center;justify-content:space-between;
     padding:22px 0}
-  .nav .brand{display:flex;align-items:baseline;gap:10px}
+  .nav .brand{display:flex;align-items:center;gap:10px}
+  .nav .brand img{width:30px;height:30px;border-radius:8px;display:block;background:#fff}
   .nav .mark{font-size:22px;font-weight:800;letter-spacing:-.6px;color:#fff}
   .nav .tag{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.5)}
   .nav .links{display:flex;gap:26px;align-items:center}
@@ -185,7 +186,7 @@
 <header class="hero">
   <nav class="nav">
     <div class="wrap" style="display:flex;align-items:center;justify-content:space-between">
-      <div class="brand"><span class="mark">Domel</span><span class="tag">Market Intelligence</span></div>
+      <div class="brand"><img src="/static/logo.png" alt="FinBrief"><span class="mark">FinBrief</span><span class="tag">Market Intelligence</span></div>
       <div class="links">
         <a href="#capability">能力</a>
         <a href="#report">报告</a>
@@ -372,7 +373,7 @@
 
 <footer>
   <div class="wrap">
-    <span>Domel · 电机市场情报 AI 助手</span>
+    <span>FinBrief · 电机市场情报 AI 助手</span>
     <span>本地部署 · 数据留存于自有数据库</span>
   </div>
 </footer>

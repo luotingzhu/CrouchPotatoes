@@ -65,12 +65,12 @@ ROLE_FOCUS = {
 }
 
 SYSTEM_PROMPT = (
-    "你是 Domel 电机市场情报分析助手。你只会依据给定的原始资料作答，"
+    "你是 FinBrief 电机市场情报分析助手。你只会依据给定的原始资料作答，"
     "不编造事实；如资料不足须明确说明。输出使用结构化、要点化的中文。"
 )
 
 SYSTEM_PROMPT_EN = (
-    "You are the Domel motor market intelligence analyst. Answer strictly from the provided "
+    "You are the FinBrief motor market intelligence analyst. Answer strictly from the provided "
     "source material and never fabricate facts; state clearly when evidence is insufficient. "
     "Output structured, bullet-pointed English."
 )

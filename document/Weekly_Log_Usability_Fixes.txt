@@ -1,0 +1,560 @@
+================================================================================
+  Domel · 电机市场情报 AI 助手 —— 每周开发记录（体验走查与修复）
+  Domel · Motor Market Intelligence AI Assistant
+  Weekly Log — Usability Walkthrough & Fixes
+================================================================================
+团队 / Team      : CrouchPotatoes
+记录人 / Author  : 组长 / Team leader luotingzhu
+周期 / Period    : 2026-11-05 ~ 2026-11-11
+本周重点 / Focus : 暂停加功能，做体验走查；同时回答「别人怎么知道它存在」
+                   Pause feature work, run a usability walkthrough, and answer
+                   "how would anyone find out this exists"
+对应里程碑 / Milestone:
+  Stop building for a moment and figure out how people will actually find out
+  this exists.
+  先暂停开发，想清楚别人究竟会怎么知道这个东西的存在。
+
+================================================================================
+零、里程碑在说什么 / 0. What the Milestone Is Actually Asking
+================================================================================
+
+  它不是要求再做一个功能，而是两个问题：
+  It does not ask for another feature. It asks two questions:
+
+    问题一 / Q1：一个从没听过这个产品的人，第一步会在哪里看到它？
+    Where would someone who has never heard of this product first see it?
+
+    问题二 / Q2：看到之后，他能多快判断「这东西对我有用」？
+    Once they see it, how fast can they judge that it is useful to them?
+
+  所以本周做两件事：
+  So this week has two workstreams:
+    A. 把「被发现」的路径铺好（介绍页、二维码、可访问地址、一页简介）。
+       Build the discovery path: landing page, QR code, reachable URL, one-pager.
+    B. 让第一次使用的人不会卡住——也就是体验走查与修复。
+       Make the first-run experience unblocked — i.e. walkthrough and fixes.
+
+  顺带说明：本周没有新增业务功能，工作量体现在「发现问题 → 修复 → 复验」。
+  Note: no new business features this week; the work is find → fix → re-verify.
+
+================================================================================
+一、传播路径设计 / 1. Discovery Path
+================================================================================
+
+1.1 四层触点 / Four layers of touchpoints
+--------------------------------------------------------------------------------
+  层级 / Layer        载体 / Surface              谁在哪里看到 / Where
+  ------------------  --------------------------  ----------------------------
+  第一层 公开介绍页    /welcome（无需登录）         任何人拿到链接即可打开
+  L1 Landing page     /welcome, no login           Anyone with the link
+  第二层 现场二维码    介绍页地址生成二维码          课堂/评审现场投影或投屏
+  L2 QR code          QR of the landing page       Projected in class/review
+  第三层 演示入口      演示账号 + 一键抓取           评审自己动手点一次
+  L3 Demo entry       Demo account + one-click    Reviewer tries it themselves
+  第四层 一页简介      A4 单页：问题 → 做法 → 证据   发给没时间打开的人
+  L4 One-pager        A4: problem → approach →     For people who will not
+                      evidence                     open the link
+
+1.2 每个触点的转化动作 / Conversion action per touchpoint
+--------------------------------------------------------------------------------
+  介绍页 → 「进入系统」按钮 → 登录页
+  Landing page → "Enter the system" → login page
+  二维码 → 手机打开介绍页 → 保存链接或直接进入
+  QR → open the landing page on a phone → save the link or enter
+  演示账号 → 抓取一次 → 生成报告 → 提问一次（三步内看到价值）
+  Demo account → fetch once → generate a report → ask one question
+  One-pager → 扫二维码 → 进入介绍页
+
+1.3 为什么介绍页先于推广 / Why the landing page comes before promotion
+--------------------------------------------------------------------------------
+  介绍页不需要登录、不依赖数据库里的个人数据，任何设备打开即可看到定位、
+  流程、角色差异与报告样例。
+  The landing page needs no login and no personal data; any device can open it
+  and see the positioning, the flow, the role differences and a report sample.
+  它承担「第一眼判断」的职责，是后续所有渠道的落点。
+  It carries the first-impression judgement and is the destination for every
+  channel.
+
+1.4 本周已落地与待落地 / Done vs pending
+--------------------------------------------------------------------------------
+  已落地 / Done
+    - /welcome 介绍页上线（公开访问，不校验登录）
+    - 介绍页内「进入系统」入口指向主应用
+    - 演示账号可用（demo / demo1234）
+    - 管理员模式密码独立，普通访客看不到后端面板
+  待落地 / Pending
+    - 内网穿透生成临时公网地址（花生壳 / frp / ngrok 三选一）
+    - 二维码图片与一页简介 PDF
+    - 介绍页加「30 秒演示录屏」嵌入
+
+================================================================================
+二、体验走查方法 / 2. Walkthrough Method
+================================================================================
+
+2.1 参与者构成 / Participants
+--------------------------------------------------------------------------------
+  按产品定义的三种角色分别走查，每人只走自己角色的路径：
+  Each of the product's three roles walks only its own path:
+    管理者视角 / Manager view   —— 关注报告结论与数据新鲜度
+    销售视角 / Sales view       —— 关注单一模块、快速拿到可用结论
+    技术视角 / Tech view        —— 关注数据来源、分区、同步状态
+
+2.2 任务清单 / Task list
+--------------------------------------------------------------------------------
+  T1  注册一个新账号并选择角色与模块
+      Register a new account, pick a role and modules
+  T2  用演示账号登录，进入个性化配置确认模块
+      Log in with the demo account and verify modules in Preferences
+  T3  点「一键抓取全部」，确认数据真的进来了
+      Trigger all sources and confirm data actually arrived
+  T4  生成一份报告，找到它的数据来源
+      Generate a report and locate its sources
+  T5  就报告内容提一个追问，再问一次同样的问题
+      Ask a follow-up about the report, then ask the same question again
+  T6  切换中英文，确认当前页面不丢状态
+      Switch language and confirm the current view is preserved
+
+2.3 观察方式 / Observation
+--------------------------------------------------------------------------------
+  - 出声思考（think-aloud），不提示、不打断
+    Think-aloud, no hints and no interruption
+  - 记录三类信号：卡住超过 10 秒、误判系统状态、重复点击
+    Record three signals: stuck over 10 seconds, misreading system state,
+    repeated clicking
+  - 问题按影响分级 / Severity
+      高 High   : 任务无法完成，或结果被误解
+      中 Medium : 任务能完成但需要试错
+      低 Low    : 体验粗糙，不影响任务
+
+================================================================================
+三、发现的问题与修复 / 3. Findings and Fixes
+================================================================================
+
+以下按用户旅程顺序排列。每条都写「用户看到什么 → 我们改了什么 → 怎么复验」。
+Ordered by the user journey. Each entry: what the user saw → what changed →
+how it was re-verified.
+
+================================================================================
+3.1 进入前：注册与登录 / Before Entry: Sign-up and Login
+================================================================================
+
+  问题 1【高】注册失败只显示 [object Object]
+  Issue 1 [High] A failed registration displayed "[object Object]"
+  ------------------------------------------------------------------------------
+  用户看到 / What the user saw:
+    密码太短或邮箱格式不对时，提示框里是一串 [object Object]，无法判断错在哪。
+    With a short password or a bad email, the message read "[object Object]"
+    and gave no clue what to correct.
+  原因 / Cause:
+    后端校验错误返回的是对象数组，前端直接把它转成字符串。
+    The backend returned an array of error objects; the frontend stringified it.
+  修复 / Fix:
+    统一错误解析函数，兼容字符串 / 数组 / 对象 / 纯文本四种形态；
+    把后端错误类型映射成中文可读文案，并标出字段名（密码/邮箱/用户名）。
+    One error parser now handles string / array / object / plain text, maps
+    backend error types to readable copy and names the offending field.
+  复验 / Re-verified:
+    密码填 123 → 提示「密码：长度至少 6 个字符」
+    用户名重复 → 提示「用户名或邮箱已存在」
+    Password "123" → "Password: must be at least 6 characters"
+    Duplicate username → "Username or email already exists"
+
+  问题 2【高】邮箱可以填任意字符
+  Issue 2 [High] Any string was accepted as an email
+  ------------------------------------------------------------------------------
+  用户看到 / What the user saw:
+    邮箱填 123 也能注册成功，之后无法判断账号是否可用。
+    "123" registered successfully, leaving the account unusable.
+  修复 / Fix:
+    前后端使用同一套规则：总长 6–254、本地部分 ≤64、标签不能以连字符开头或结尾、
+    顶级域至少 2 个字母；自动去首尾空格并转小写，避免仅大小写不同的重复账号。
+    One shared rule set front and back: total 6–254 chars, local part ≤64,
+    labels cannot start or end with a hyphen, TLD at least two letters;
+    trim and lowercase to prevent case-only duplicates.
+  复验 / Re-verified:
+    123 / a@b / a@example.c / .abc@example.com / a..b@example.com 均被拒绝；
+    user@example.com 与 a.b+tag@sub.example.co 正常通过。
+    All five invalid forms rejected; both valid forms accepted.
+
+  问题 3【中】注册按钮可以连点
+  Issue 3 [Medium] The register button could be clicked repeatedly
+  ------------------------------------------------------------------------------
+  用户看到 / What the user saw:
+    网络慢时反复点击，不知道是否已经提交。
+    On a slow network the user clicked again and again, unsure whether the
+    first attempt had gone through.
+  修复 / Fix:
+    提交时按钮禁用并显示「注册中…」，失败后恢复可点。
+    The button disables and shows "Registering…" during the request and
+    restores on failure.
+
+  问题 4【中】刷新页面被踢回登录页
+  Issue 4 [Medium] Refreshing the page kicked the user back to login
+  ------------------------------------------------------------------------------
+  用户看到 / What the user saw:
+    按 F5 后短暂白屏，然后回到登录页，需要重新登录。
+    Pressing F5 produced a blank flash and then the login page.
+  原因 / Cause:
+    页面刷新会中断正在进行的会话请求，前端把所有失败都当成登录失效。
+    A refresh aborted the in-flight session request, and every failure was
+    treated as an expired session.
+  修复 / Fix:
+    只有服务端明确返回 401 才登出，网络中断不再误判。
+    Only an explicit 401 logs the user out; network aborts no longer do.
+
+================================================================================
+3.2 首次配置 / First Configuration
+================================================================================
+
+  问题 5【高】没订阅模块时，生成报告只说「暂无数据」
+  Issue 5 [High] With no modules subscribed, reports only said "no data"
+  ------------------------------------------------------------------------------
+  用户看到 / What the user saw:
+    第一次进入就点生成报告，得到「暂无数据」，不知道是系统坏了还是自己没配置。
+    A first-time user generated a report, saw "no data" and could not tell
+    whether the system was broken or they had misconfigured something.
+  修复 / Fix:
+    区分两种原因并明确提示：
+      未订阅任何模块 → 「请先在个性化配置中选择模块」
+      已订阅但时间窗内无数据 → 自动回退到最新历史数据，并提示数据时间
+    The two causes are now distinguished:
+      no modules subscribed → "pick modules in Preferences first"
+      subscribed but nothing in the window → fall back to the newest
+      historical rows and state their timestamp
+  复验 / Re-verified:
+    未订阅账号返回 400 与明确文案；只订阅商业统计的账号可正常生成。
+    The unsubscribed account gets 400 with clear copy; a Business-Stats-only
+    account generates successfully.
+
+================================================================================
+3.3 抓取数据 / Fetching Data
+================================================================================
+
+  问题 6【高】抓取后某个模块仍然没有新数据
+  Issue 6 [High] A module still had no new data after fetching
+  ------------------------------------------------------------------------------
+  用户看到 / What the user saw:
+    点了「一键抓取全部」，新闻和金融有更新，但报告里仍是两周前的内容，
+    于是怀疑抓取功能没生效。
+    After "Trigger all", News and Finance updated but the report still used
+    two-week-old content, so the user concluded fetching was broken.
+  原因 / Cause:
+    该模块只有内置演示源，内容固定，重复抓取被去重跳过；
+    真实财经站点的数据归到新闻/金融，不会进入商业统计。
+    That module only had a static demo source that deduplicated away; the real
+    finance sites feed News/Finance, not Business Stats.
+  修复 / Fix:
+    演示源内容追加当日日期标记，保证每天第一次抓取产生新行；
+    一键抓取时自动补齐缺失的模块演示源。
+    Demo items carry a daily marker so the first fetch each day inserts new
+    rows; one-click fetch backfills missing per-module demo sources.
+  复验 / Re-verified:
+    抓取前后对比：政治与商业统计由 3 条增至 6 条，最新时间由两周前变为当天；
+    同一天再次抓取行数不变（去重仍生效）。
+    Before/after: Politics and Business went from 3 to 6 rows and their newest
+    timestamp moved from two weeks ago to today; a second run the same day
+    added nothing, so dedup still holds.
+
+  问题 7【中】重复抓取没有反馈
+  Issue 7 [Medium] Repeated fetches gave no feedback
+  ------------------------------------------------------------------------------
+  用户看到 / What the user saw:
+    再次点抓取，行数没有变化，界面也没有说明，用户以为按钮失效。
+    A second trigger changed no counts and said nothing, so the button looked
+    broken.
+  修复 / Fix:
+    去重命中时在实时事件流中显示「重复数据已跳过」，并在抓取结果里返回投递条数。
+    A dedup hit now appears in the live event strip as "duplicate skipped",
+    and the endpoint returns the dispatched count.
+
+  问题 8【高】新闻列表里出现虚构条目
+  Issue 8 [High] Fabricated items appeared in the news list
+  ------------------------------------------------------------------------------
+  用户看到 / What the user saw:
+    新闻里混入了域名 demo.domel.local 的内容，对「数据可信」直接产生怀疑。
+    News contained items from demo.domel.local, which immediately undermined
+    trust in the data.
+  修复 / Fix:
+    停用该演示新闻源并清除其数据，新闻只保留真实站点；一键抓取不再补回。
+    Disabled that demo news source and purged its rows; News now uses real
+    sites only and the backfill no longer recreates it.
+  复验 / Re-verified:
+    新闻模块数据源仅剩东方财富 / 新浪 / 凤凰 / 东方财富国际。
+    Only the four real news sources remain.
+
+  问题 9【中】一键抓取等待时间过长
+  Issue 9 [Medium] "Trigger all" blocked for too long
+  ------------------------------------------------------------------------------
+  用户看到 / What the user saw:
+    点击后按钮长时间无响应，不确定是否成功。
+    The button stayed unresponsive for a long time with no confirmation.
+  修复 / Fix:
+    请求内只负责投递，抓取与入库交给后台消费者异步完成，接口立即返回。
+    The request only dispatches; fetching and persistence run asynchronously
+    in the consumer, so the endpoint returns immediately.
+
+================================================================================
+3.4 生成报告 / Generating Reports
+================================================================================
+
+  问题 10【高】报告用了旧数据却没有任何提示
+  Issue 10 [High] Reports built on stale data carried no warning
+  ------------------------------------------------------------------------------
+  用户看到 / What the user saw:
+    报告看起来正常，事后才发现引用的是两周前的新闻，据此做判断会出错。
+    The report looked fine; only later did the user notice the sources were
+    two weeks old.
+  修复 / Fix:
+    报告详情增加数据新鲜度判定：当全部素材都早于回溯窗口时，顶部显示黄色提示，
+    写明「涉及哪些订阅模块没有新数据」以及「哪些模块有新数据可以订阅」；
+    生成成功的提示也改为「报告已生成（仅有旧数据）」。
+    Report detail now judges freshness: when every source predates the lookback
+    window, a warning states which subscribed modules are stale and which
+    modules have fresh data available; the success toast also says
+    "generated (stale data only)".
+  复验 / Re-verified:
+    只订阅商业统计的账号：提示为「涉及模块：商业统计；金融、新闻当前有最新数据」；
+    订阅全部模块的账号：无提示。
+    Business-only account: warns "modules involved: Business Stats; Finance and
+    News have fresh data". Full-subscription account: no warning.
+
+  问题 11【中】三段内容平铺，长报告难以定位
+  Issue 11 [Medium] Three flat sections were hard to navigate
+  ------------------------------------------------------------------------------
+  用户看到 / What the user saw:
+    摘要、经济分析、政策连成一片，滚动时不知道自己看到第几部分。
+    Highlights, economic analysis and policy ran together, so the reader lost
+    track of which part they were in.
+  修复 / Fix:
+    顶部增加目录（可点击跳转），正文改为分章节：01 高亮摘要 / 02 经济分析 /
+    03 国家政策，每章独立标题、编号与分隔线；自动去掉正文开头重复的一级标题。
+    Added a clickable table of contents and split the body into numbered
+    chapters with their own headings and dividers; the duplicated leading
+    heading is stripped.
+  复验 / Re-verified:
+    目录三项均可跳转到对应章节，正文中章节标题只出现一次。
+    All three TOC entries jump correctly and each chapter heading appears once.
+
+  问题 12【中】英文界面下报告仍是中文
+  Issue 12 [Medium] Reports stayed Chinese in the English UI
+  ------------------------------------------------------------------------------
+  用户看到 / What the user saw:
+    界面切成 EN，但生成的报告正文还是中文，语言不一致。
+    The UI was switched to EN but generated report bodies remained Chinese.
+  修复 / Fix:
+    生成报告时把当前语言传给后端，报告按所选语言生成。
+    The current language is passed to the backend at generation time and the
+    report is produced in that language.
+
+================================================================================
+3.5 对话追问 / Chat Follow-up
+================================================================================
+
+  问题 13【中】重复提问没有缓存提示
+  Issue 13 [Medium] Repeated questions gave no cache indication
+  ------------------------------------------------------------------------------
+  用户看到 / What the user saw:
+    同一个问题问两次，界面完全一样，无法判断系统是否真的复用了结果。
+    Asking the same question twice produced identical output, so the user
+    could not tell whether the system reused the previous answer.
+  修复 / Fix:
+    命中缓存时在答案下方标注「本次结果命中 Redis 缓存」。
+    A cache hit is labelled under the answer as served from the Redis cache.
+
+  问题 14【高】切换语言后答案语言串用
+  Issue 14 [High] Answers crossed languages after switching
+  ------------------------------------------------------------------------------
+  用户看到 / What the user saw:
+    从中文切到英文再问，返回的还是中文答案。
+    After switching from Chinese to English, answers came back in Chinese.
+  原因 / Cause:
+    问答缓存键只包含会话与问题，没有语言维度。
+    The cache key lacked a language dimension.
+  修复 / Fix:
+    缓存键加入语言，并在提示词中强制只用当前语言作答。
+    Language added to the cache key and enforced in the prompt.
+
+  问题 15【高】长会话上下文无限增长
+  Issue 15 [High] Long sessions grew without bound
+  ------------------------------------------------------------------------------
+  用户看到 / What the user saw:
+    聊到十几轮后回答明显变慢，偶尔失败。
+    Beyond a dozen turns answers slowed noticeably and occasionally failed.
+  修复 / Fix:
+    短期上下文只保留最近 10 轮，提示词只取最近 6 轮。
+    Short-term context keeps the last 10 turns; the prompt uses the last 6.
+
+  问题 16【高】知道会话 ID 就能读别人的对话
+  Issue 16 [High] A session ID was enough to read someone else's chat
+  ------------------------------------------------------------------------------
+  用户看到（技术视角）/ What the tech reviewer saw:
+    直接请求别人的 session_id 也能拿到消息列表。
+    Requesting another user's session_id returned its messages.
+  修复 / Fix:
+    所有会话与报告接口先校验归属，不匹配返回 404。
+    Every session and report endpoint checks ownership and returns 404 on
+    mismatch.
+
+================================================================================
+3.6 管理员与技术视角 / Admin and Technical View
+================================================================================
+
+  问题 17【高】普通用户能看到「后端同步状态」但点进去报错
+  Issue 17 [High] Regular users saw the backend panel but got an error
+  ------------------------------------------------------------------------------
+  用户看到 / What the user saw:
+    侧栏有这一项，点进去提示 403，像是产品坏了。
+    The nav item existed, but opening it returned 403, which read as a bug.
+  修复 / Fix:
+    改为管理员模式门控：未解锁时侧栏不渲染该项，前端也拦截视图切换；
+    服务端仍然强制校验，403 只是最后一道防线。
+    Gated behind admin mode: the item is not rendered while locked and view
+    switching is intercepted; the server check remains the real boundary.
+
+  问题 18【中】锁定管理员后仍持续报 403
+  Issue 18 [Medium] 403s continued after locking admin mode
+  ------------------------------------------------------------------------------
+  用户看到 / What the user saw:
+    关闭管理员模式后，控制台不断出现失败请求。
+    After switching admin mode off, failed requests kept appearing.
+  修复 / Fix:
+    离开状态页时清理轮询定时器，页面不可见时暂停刷新。
+    The polling timer is cleared on view teardown and paused while the page is
+    hidden.
+
+  问题 19【低】普通用户看不到环境信息
+  Issue 19 [Low] Regular users could not see environment info
+  ------------------------------------------------------------------------------
+  用户看到 / What the user saw:
+    顶栏的数据库与队列信息对普通用户空白。
+    The header's database and broker lines were empty for regular users.
+  修复 / Fix:
+    环境信息改走公开健康检查接口，只暴露后端类型，不暴露敏感数据。
+    Environment info now comes from a public health endpoint exposing only
+    backend types, no sensitive data.
+
+================================================================================
+四、修复前后对照 / 4. Before and After
+================================================================================
+
+  用户旅程 / Journey   修复前 / Before                    修复后 / After
+  -------------------  ---------------------------------  --------------------------
+  注册                 报错 [object Object]               指出具体字段与原因
+  Sign-up              "[object Object]"                  Names the field and cause
+  注册                 邮箱可填 123                       格式不合法直接拒绝
+  Sign-up              "123" accepted                     Invalid formats rejected
+  首次生成             笼统的「暂无数据」                  区分未订阅 / 无新数据
+  First report         Vague "no data"                    Separates the two causes
+  抓取                 某模块永远没有新数据                每日快照 + 自动补源
+  Fetch                One module never updated            Daily snapshot + backfill
+  抓取                 重复抓取无反馈                      「重复数据已跳过」事件
+  Fetch                Silent duplicates                   Explicit skip event
+  数据可信             新闻混入虚构条目                    仅真实站点
+  Trust                Fabricated news items               Real sources only
+  报告                 用旧数据无提示                      黄色提示 + 建议订阅
+  Reports              Silent stale data                   Warning + suggestion
+  报告                 三段平铺                            目录 + 分章节
+  Reports              Flat sections                       TOC + chapters
+  对话                 重复提问无提示                      标注缓存命中
+  Chat                 No cache indication                 Cache-hit label
+  对话                 中英答案串用                        语言隔离
+  Chat                 Cross-language answers              Language isolation
+  权限                 会话可被越权读取                    归属校验
+  Access               Cross-user reads                    Ownership check
+  管理员               面板可见但 403                      门控隐藏 + 服务端校验
+  Admin                Visible but 403                     Hidden + enforced
+
+================================================================================
+五、复验与证据 / 5. Re-verification and Evidence
+================================================================================
+
+5.1 复验方式 / How issues were re-checked
+--------------------------------------------------------------------------------
+  每条修复都回到同一台机器、同一份数据上重跑对应任务：
+  Every fix was re-run on the same machine and dataset with the same task:
+    注册类 → 直接提交 5 种非法输入 + 2 种合法输入
+    Sign-up → 5 invalid and 2 valid submissions
+    抓取类 → 抓取前后对比各模块行数与最新时间
+    Fetch → compare per-module row counts and newest timestamps before/after
+    报告类 → 只用单一模块订阅的账号复现旧数据场景
+    Reports → reproduce the stale scenario with a single-module account
+    对话类 → 同一问题连问两次，观察缓存标注与后端日志
+    Chat → ask twice and compare the cache label with backend logs
+    权限类 → 未解锁状态直接请求受保护接口
+    Access → call protected endpoints while locked
+
+5.2 当前数据快照 / Current data snapshot
+--------------------------------------------------------------------------------
+  以下为 2026-11-11 实际查询结果。
+  Live query results from 2026-11-11.
+
+  检查项 / Check                    结果 / Result
+  --------------------------------  -------------------------------------------
+  数据源 / data sources             12
+  raw_data 行数 / rows              110
+  模块分布 / per module              新闻 35 · 政治 6 · 商业统计 6 · 金融 63
+  分区 / partitions                 raw_data 与 chat_messages 各 4 个
+                                    （3 个月 + default）
+  embeddings                        709（raw_data 379 · report_section 330）
+  未解锁访问状态接口 / gated status   403
+  解锁后访问 / after unlock           200
+
+================================================================================
+六、仍未解决 / 6. Known Limitations
+================================================================================
+
+  1. 介绍页还没有演示录屏，评审网络差时只能看静态内容。
+     The landing page has no demo recording yet, so a poor network leaves the
+     reviewer with static content only.
+  2. 内网穿透地址未配置，公网访问仍依赖现场网络。
+     No NAT-traversal URL yet; public access still depends on the venue network.
+  3. 政治与商业统计仍以演示源为主，缺少真实站点。
+     Politics and Business Stats still rely on demo sources; real sites are
+     outstanding.
+  4. 中文全文检索仍用 simple 配置，词形变化与同义词召回有限。
+     Chinese full-text search still uses the `simple` config, so stemming and
+     synonym recall are limited.
+  5. 对话引用编号尚不可点击跳转，只能看到数字。
+     Citation numbers are not yet clickable.
+  6. 没有自动化回归测试，目前靠任务清单人工复验。
+     No automated regression suite; re-verification is a manual task list.
+
+================================================================================
+七、下周计划 / 7. Next Week
+================================================================================
+
+  1. 完成内网穿透与二维码，让评审能在自己设备上打开介绍页。
+     Finish NAT traversal and the QR code so reviewers can open the landing
+     page on their own devices.
+  2. 录一段 30 秒演示视频嵌入介绍页，作为网络异常时的兜底。
+     Record a 30-second demo and embed it as a fallback.
+  3. 把引用编号做成可点击，跳回报告段落或原始新闻。
+     Make citation numbers clickable, jumping back to the section or article.
+  4. 为第 3 节中的高优先级问题补自动化测试，防止回归。
+     Add automated tests for the high-severity items in section 3.
+  5. 给政治与商业统计各接一个真实数据源。
+     Connect one real data source each for Politics and Business Stats.
+
+================================================================================
+附录 A：问题分级汇总 / Appendix A: Severity Summary
+================================================================================
+
+  级别 / Severity   数量 / Count   说明 / Note
+  ----------------  -------------  ------------------------------------------
+  高 High           10             任务无法完成或结论被误解
+                                    Task blocked or conclusion misread
+  中 Medium         8              能完成但需要试错
+                                    Completed with trial and error
+  低 Low            1              体验粗糙，不影响任务
+                                    Rough edges, task unaffected
+  合计 Total        19
+
+  按旅程分布 / By journey
+    注册登录 Sign-up/login      4
+    首次配置 First config       1
+    抓取数据 Fetch              4
+    生成报告 Reports            3
+    对话追问 Chat               4
+    管理员 Admin                3
+
+================================================================================
