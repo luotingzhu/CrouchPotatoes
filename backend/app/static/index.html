@@ -200,6 +200,8 @@
 
     .msg{max-width:88%}
     .chatlog{max-height:56vh}
+    /* 会话列表限高：避免把对话框挤到屏幕外 */
+    #sessList{max-height:34vh;overflow:auto;padding-right:4px}
     .chatinput input{min-width:0}
     .evlog{font-size:11.5px}
     .evlog .stg{width:50px}
@@ -1080,6 +1082,11 @@ async function openSession(id){
     if (!msgs.length) log.innerHTML = `<div class="msg sys">${t('chat.ready')}</div>`;
     msgs.forEach(m => addMsg(m.sender_type === 'user' ? 'user' : 'ai', m.content));
   } catch (e) { toast(e.message); }
+  // 窄屏下对话框在会话列表下方，打开会话后自动滚过去，避免「点了没反应」的错觉
+  if (window.innerWidth <= 860) {
+    const card = log.closest('.card');
+    if (card) card.scrollIntoView({block: 'start', behavior: 'smooth'});
+  }
 }
 
 function addMsg(role, text){
