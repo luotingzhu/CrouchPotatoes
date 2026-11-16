@@ -119,6 +119,20 @@ class RawDataOut(BaseModel):
     url: Optional[str] = None
 
 
+class TranslateIn(BaseModel):
+    data_ids: list[uuid.UUID] = Field(default_factory=list)
+    lang: str = "en"
+
+
+class TranslatedItem(BaseModel):
+    data_id: uuid.UUID
+    title: str
+
+
+class TranslateOut(BaseModel):
+    items: list[TranslatedItem] = Field(default_factory=list)
+
+
 # ---------- 报告 ----------
 class SectionOut(BaseModel):
     section_id: uuid.UUID

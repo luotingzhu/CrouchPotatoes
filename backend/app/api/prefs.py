@@ -58,6 +58,7 @@ async def update_prefs(
     await bus.publish(
         "system",
         f"用户 {user.username} 更新偏好：角色={payload.role_names} 模块={payload.module_codes}",
+        f"User {user.username} updated preferences: roles={payload.role_names} modules={payload.module_codes}",
     )
     return UserOut(
         user_id=user.user_id,

@@ -58,14 +58,22 @@ async def admin_unlock(
     if not hmac.compare_digest(payload.password, settings.admin_password):
         raise HTTPException(403, "管理员密码错误")
     await redis_client.set(_admin_key(user.user_id), "1", ex=_ADMIN_TTL)
-    await bus.publish("system", f"用户 {user.username} 开启了管理员模式")
+    await bus.publish(
+        "system",
+        f"用户 {user.username} 开启了管理员模式",
+        f"User {user.username} enabled admin mode",
+    )
     return AdminStatusOut(enabled=True)
 
 
 @router.post("/admin/lock", response_model=AdminStatusOut)
 async def admin_lock(user: User = Depends(get_current_user)) -> AdminStatusOut:
     await redis_client.delete(_admin_key(user.user_id))
-    await bus.publish("system", f"用户 {user.username} 关闭了管理员模式")
+    await bus.publish(
+        "system",
+        f"用户 {user.username} 关闭了管理员模式",
+        f"User {user.username} disabled admin mode",
+    )
     return AdminStatusOut(enabled=False)
 
 

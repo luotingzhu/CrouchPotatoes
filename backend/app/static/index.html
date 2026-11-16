@@ -119,14 +119,14 @@
 
   .list{display:flex;flex-direction:column;gap:10px}
   .list .item{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:#FCFDFF}
-  .list .item .t{font-weight:600;color:var(--ink);margin-bottom:4px}
-  .list .item .m{font-size:12.5px;color:var(--faint)}
+  .list .item .t{font-weight:600;color:var(--ink);margin-bottom:4px;overflow-wrap:anywhere}
+  .list .item .m{font-size:12.5px;color:var(--faint);overflow-wrap:anywhere;word-break:break-word}
   .sec-title{font-size:12px;letter-spacing:1.2px;text-transform:uppercase;color:var(--faint);
     font-weight:600;margin:18px 0 8px}
   .sec-body{white-space:pre-wrap;line-height:1.75;font-size:14px}
   .src-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
   .src-list a{font-size:12px;background:var(--accent-soft);color:var(--navy);border-radius:999px;
-    padding:4px 10px;text-decoration:none}
+    padding:4px 10px;text-decoration:none;max-width:100%;overflow-wrap:anywhere}
 
   .chatlog{display:flex;flex-direction:column;gap:12px;max-height:460px;overflow:auto;padding:6px 2px}
   .msg{max-width:78%;padding:10px 14px;border-radius:12px;font-size:14px;white-space:pre-wrap;line-height:1.65}
@@ -174,6 +174,51 @@
   .adminpwd{display:flex;gap:10px}
   .adminpwd input{flex:1;padding:9px 12px;border:1px solid var(--line);border-radius:9px;outline:none;background:#FCFDFF}
   .adminpwd input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(46,109,164,.1)}
+
+  /* ---------- 移动端 / 窄屏适配 ---------- */
+  @media (max-width: 860px){
+    /* 侧边栏改成顶部横向导航条，避免挤占正文宽度 */
+    .layout{grid-template-columns:1fr;align-content:start;min-height:calc(100vh - 54px - 40px)}
+    .sidenav{display:flex;align-items:center;gap:6px;overflow-x:auto;padding:8px 10px;
+      border-right:none;border-bottom:1px solid var(--line);-webkit-overflow-scrolling:touch}
+    .sidenav button{width:auto;flex:none;margin:0;white-space:nowrap;padding:8px 12px;font-size:13px}
+    .sidenav .dot{display:none}
+
+    .topbar .inner{height:54px;gap:10px;padding:0 12px}
+    .brand .tag{display:none}
+    #brokerChip,#vecChip{display:none}
+    #whoami{display:none}
+
+    main{padding:16px 14px 64px}
+    .card{padding:14px 14px;border-radius:12px}
+    .page-head{flex-wrap:wrap;gap:10px;margin-bottom:14px}
+    .page-head h2{font-size:17px}
+    .grid.c2,.grid.c3,.grid.c4{grid-template-columns:1fr}
+
+    /* 宽表格在窄屏内横向滚动，不再撑破页面 */
+    main table{display:block;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch}
+
+    .msg{max-width:88%}
+    .chatlog{max-height:56vh}
+    .chatinput input{min-width:0}
+    .evlog{font-size:11.5px}
+    .evlog .stg{width:50px}
+    .evlog .row{gap:6px}
+
+    #loginScreen{display:block;padding:64px 14px 32px}
+    .authcard{padding:24px 18px;border-radius:14px;max-width:100%;margin:0 auto}
+    html,body{overflow-x:hidden}
+    .kpi .n{font-size:20px}
+    .toc{padding:10px 12px}
+    #toast{right:12px;left:12px}
+  }
+  @media (max-width: 420px){
+    .langswitch button{padding:4px 8px}
+    .userchip{padding:4px 8px 4px 4px}
+    .btn.sm{padding:6px 10px;font-size:12.5px}
+    .msg{max-width:92%}
+    #langSwitchLogin{top:10px;right:10px}
+  }
 </style>
 </head>
 <body>
@@ -196,8 +241,8 @@
     <div id="loginErr" class="err" hidden></div>
 
     <form id="loginForm">
-      <div class="field"><label data-i18n="field.username"></label><input id="li_user" value="demo" autocomplete="username"></div>
-      <div class="field"><label data-i18n="field.password"></label><input id="li_pass" type="password" value="demo1234" autocomplete="current-password"></div>
+      <div class="field"><label data-i18n="field.username"></label><input id="li_user" autocomplete="username"></div>
+      <div class="field"><label data-i18n="field.password"></label><input id="li_pass" type="password" autocomplete="current-password"></div>
       <button class="btn" style="width:100%" type="submit" data-i18n="btn.login"></button>
       <p class="hint" data-i18n="auth.hint"></p>
     </form>
@@ -479,6 +524,24 @@ const MODULE_LABEL = {
   finance:  { zh: '金融',     en: 'Finance' }
 };
 
+// 数据源名称的英文对照（源名称来自数据库，属于数据，需要显式映射）
+const SOURCE_NAME_EN = {
+  '财经资讯 · 东方财富': 'Finance News · East Money',
+  '财经资讯 · 新浪财经': 'Finance News · Sina Finance',
+  '财经资讯 · 第一财经': 'Finance News · Yicai',
+  '财经资讯 · 凤凰财经': 'Finance News · Phoenix Finance',
+  '政策时政 · 新华网': 'Policy & Politics · Xinhua',
+  '商业统计 · 国家统计局': 'Business Statistics · NBS',
+  '国际财经 · CNBC': 'Global Markets · CNBC',
+  '国际财经 · 智通财经': 'Global Markets · Zhitong Finance',
+  '国际财经 · 格隆汇': 'Global Markets · Gelonghui',
+  '国际财经 · 东方财富国际': 'Global Markets · East Money Global'
+};
+function sourceLabel(s){
+  if (S.lang !== 'en') return s.source_name;
+  return SOURCE_NAME_EN[s.source_name] || s.source_name;
+}
+
 function t(key, vars){
   const dict = I18N[S.lang] || I18N.zh;
   let str = dict[key];
@@ -517,7 +580,7 @@ function applyStaticI18n(){
   if (tick) {
     if (S.events.length) {
       const last = S.events[S.events.length - 1];
-      tick.textContent = fmtTime(last.ts) + '  ' + last.message;
+      tick.textContent = fmtTime(last.ts) + '  ' + evText(last);
     } else {
       tick.textContent = t('live.waiting');
     }
@@ -829,8 +892,8 @@ async function loadSources(){
     $('srcTable').innerHTML = list.length ? `
       <table><thead><tr><th>${t('sources.thId')}</th><th>${t('sources.thName')}</th><th>${t('sources.thType')}</th><th>${t('sources.thUrl')}</th><th>${t('sources.thStatus')}</th><th></th></tr></thead><tbody>
       ${list.map(s => `<tr>
-        <td class="mono">${s.source_id}</td><td>${esc(s.source_name)}</td>
-        <td><span class="badge info">${s.source_type}</span></td>
+        <td class="mono">${s.source_id}</td><td>${esc(sourceLabel(s))}</td>
+        <td><span class="badge info">${S.lang === 'en' ? (s.source_type === 'api' ? 'API' : 'Crawler') : s.source_type}</span></td>
         <td class="mono" style="color:var(--faint);max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.url)}</td>
         <td>${s.status === 1 ? `<span class="badge ok">${t('sources.enabled')}</span>` : `<span class="badge no">${t('sources.disabled')}</span>`}</td>
         <td><button class="btn ghost sm" data-trigger="${s.source_id}">${t('btn.trigger')}</button></td></tr>`).join('')}
@@ -846,9 +909,19 @@ async function loadSources(){
   try {
     const raws = await api('/api/sources/raw?limit=12');
     $('rawList').innerHTML = raws.length ? '<div class="list">' + raws.map(r => `
-      <div class="item"><div class="t">${esc(r.title)}</div>
+      <div class="item"><div class="t" data-raw-title="${r.data_id}">${esc(r.title)}</div>
       <div class="m">${t('sources.moduleTag')} #${r.module_id} · ${fmtTime(r.publish_time)} · ${esc(r.url || '')}</div></div>`).join('') + '</div>'
       : `<p style="color:var(--faint)">${t('sources.rawEmpty')}</p>`;
+    // 英文界面：异步把标题翻译成英文（后端 Redis 缓存；失败则保留原文）
+    if (S.lang === 'en' && raws.length) {
+      api('/api/sources/raw/translate', {
+        method: 'POST',
+        body: JSON.stringify({ data_ids: raws.map(r => r.data_id), lang: 'en' })
+      }).then(res => (res.items || []).forEach(it => {
+        const el = document.querySelector('[data-raw-title="' + it.data_id + '"]');
+        if (el) el.textContent = it.title;
+      })).catch(() => {});
+    }
   } catch (e) { $('rawList').innerHTML = ''; }
 }
 
@@ -1175,13 +1248,19 @@ async function viewSystem(){
   clearInterval(statusTimer); statusTimer = setInterval(refresh, 4000);
 }
 
+/* 后端事件文案：英文界面优先用 message_en，缺失时回退中文 */
+function evText(e){
+  if (!e) return '';
+  return (S.lang === 'en' ? (e.message_en || e.message) : e.message) || '';
+}
+
 function paintEvents(events){
   const box = $('evlog'); if (!box) return;
   S.events = events.slice(-60);
   box.innerHTML = S.events.map(e => `
     <div class="row"><span class="ts">${fmtTime(e.ts)}</span>
     <span class="stg ${esc(e.stage)}">${esc(e.stage)}</span>
-    <span>${esc(e.message)}</span></div>`).join('');
+    <span>${esc(evText(e))}</span></div>`).join('');
   box.scrollTop = box.scrollHeight;
 }
 
@@ -1195,7 +1274,7 @@ function connectEvents(){
     let e; try { e = JSON.parse(m.data); } catch { return; }
     S.events.push(e); if (S.events.length > 200) S.events.shift();
     $('liveStage').textContent = e.stage;
-    $('liveTick').textContent = fmtTime(e.ts) + '  ' + e.message;
+    $('liveTick').textContent = fmtTime(e.ts) + '  ' + evText(e);
     if (S.view === 'system') paintEvents(S.events);
   };
   es.onerror = () => { $('liveStage').textContent = t('live.reconnecting'); };

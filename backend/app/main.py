@@ -41,7 +41,11 @@ async def lifespan(app: FastAPI):
 
     consumer_task = asyncio.create_task(IngestionService().consume_loop())
     await scheduler.start()
-    await bus.publish("system", "后端服务已启动，消费者与调度器就绪")
+    await bus.publish(
+        "system",
+        "后端服务已启动，消费者与调度器就绪",
+        "Backend started; consumer and scheduler are ready",
+    )
 
     try:
         yield
@@ -111,4 +115,4 @@ async def index() -> FileResponse:
 @app.get("/welcome")
 async def welcome() -> FileResponse:
     """公开的产品介绍页（无需登录，可用于对外分享）。"""
-    return FileResponse(STATIC_DIR / "landing.html")
+    return FileResponse(STATIC_DIR / "site" / "index.html")

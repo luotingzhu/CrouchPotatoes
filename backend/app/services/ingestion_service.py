@@ -38,6 +38,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.events import bus
+from app.core.source_names import source_name_en
 from app.db.models import DataSource, RawData
 from app.db.session import AsyncSessionLocal
 from app.pipeline.broker import get_broker
@@ -82,6 +83,13 @@ _SITE_PROFILES: dict[str, dict[str, Any]] = {
     },
     "www.gelonghui.com": {
         "list": "section.detail-right > a", "href_has": "gelonghui.com", "module_id": 4,
+    },
+    # ---- 政策 / 宏观统计（真实来源）----
+    "www.news.cn": {
+        "list": "li a", "href_has": "/politics/20", "module_id": 2,
+    },
+    "www.stats.gov.cn": {
+        "list": "li a", "href_has": "/t20", "module_id": 3,
     },
 }
 
@@ -148,7 +156,12 @@ class IngestionService:
                 logger.warning("数据源 %s 不存在或已停用，跳过", source_id)
                 return 0
 
-            await bus.publish("crawl", f"开始抓取数据源：{source.source_name}", source_id=source_id)
+            await bus.publish(
+                "crawl",
+                f"开始抓取数据源：{source.source_name}",
+                f"Fetching source: {source_name_en(source.source_name)}",
+                source_id=source_id,
+            )
             if source.source_type == "api":
                 docs = await self._fetch_api(source)
             else:
@@ -163,6 +176,7 @@ class IngestionService:
         await bus.publish(
             "crawl",
             f"数据源 [{source.source_name}] 抓取完成，投递 {sent} 条",
+            f"Source [{source_name_en(source.source_name)}] fetched; {sent} items dispatched",
             source_id=source_id,
             count=sent,
         )
@@ -196,12 +210,14 @@ class IngestionService:
                     await bus.publish(
                         "crawl",
                         f"[{source.source_name}] 列表页 {len(links)} 条链接，成功抓取 {len(docs)} 篇正文",
+                        f"[{source_name_en(source.source_name)}] {len(links)} links on list page, {len(docs)} articles fetched",
                         source_id=source.source_id,
                     )
                     return docs
                 await bus.publish(
                     "crawl",
                     f"[{source.source_name}] 站点配置未命中，回退通用解析",
+                    f"[{source_name_en(source.source_name)}] site profile missed; falling back to generic parsing",
                     level="warn",
                     source_id=source.source_id,
                 )
@@ -311,14 +327,21 @@ class IngestionService:
     async def consume_loop(self) -> None:
         """常驻消费循环。"""
         broker = get_broker()
-        await bus.publish("system", "入库消费者已启动，等待消息…")
+        await bus.publish(
+            "system",
+            "入库消费者已启动，等待消息…",
+            "Ingestion consumer started; waiting for messages...",
+        )
         async for payload in broker.subscribe(settings.kafka_topic_raw):
             try:
                 await self.handle_message(payload)
             except Exception:
                 logger.exception("消息处理失败: %s", payload.get("url"))
                 await bus.publish(
-                    "ingest", f"入库失败：{payload.get('title', '')[:40]}", level="error"
+                    "ingest",
+                    f"入库失败：{payload.get('title', '')[:40]}",
+                    f"Ingestion failed: {payload.get('title', '')[:40]}",
+                    level="error",
                 )
 
     async def handle_message(self, payload: dict[str, Any]) -> Optional[uuid.UUID]:
@@ -329,7 +352,10 @@ class IngestionService:
             # 1) 去重：同一源 + 相同内容指纹视为重复
             if await self._is_duplicate(session, payload["source_id"], content_hash):
                 await bus.publish(
-                    "ingest", f"重复数据已跳过：{payload.get('title', '')[:40]}", level="muted"
+                    "ingest",
+                    f"重复数据已跳过：{payload.get('title', '')[:40]}",
+                    f"Duplicate skipped: {payload.get('title', '')[:40]}",
+                    level="muted",
                 )
                 return None
 
@@ -352,6 +378,7 @@ class IngestionService:
         await bus.publish(
             "ingest",
             f"已入库 raw_data：{payload.get('title', '')[:40]}",
+            f"Stored in raw_data: {payload.get('title', '')[:40]}",
             data_id=str(data_id),
             module_id=payload["module_id"],
         )
@@ -364,6 +391,7 @@ class IngestionService:
             await bus.publish(
                 "embed",
                 f"向量化失败（原始数据已入库，可稍后重试）：{exc}",
+                f"Embedding failed (raw data stored; retry later): {exc}",
                 level="error",
                 data_id=str(data_id),
             )
@@ -396,6 +424,7 @@ class IngestionService:
         await bus.publish(
             "embed",
             f"向量化完成：{len(items)} 个分块 → {settings.vector_backend}",
+            f"Embedded {len(items)} chunks → {settings.vector_backend}",
             data_id=str(data_id),
             chunks=len(items),
         )

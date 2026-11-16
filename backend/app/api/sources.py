@@ -2,16 +2,29 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.core.cache import redis_client
 from app.core.events import bus
+from app.core.source_names import source_name_en
 from app.db.models import DataSource, RawData, User
 from app.db.session import get_session
-from app.schemas import RawDataOut, SourceIn, SourceOut, TriggerOut
+from app.schemas import (
+    RawDataOut,
+    SourceIn,
+    SourceOut,
+    TranslateIn,
+    TranslateOut,
+    TranslatedItem,
+    TriggerOut,
+)
+from app.services.ai_client import chat_complete
 from app.services.ingestion_service import IngestionService
 
 router = APIRouter(prefix="/api/sources", tags=["sources"])
@@ -50,7 +63,11 @@ async def create_source(
     )
     session.add(source)
     await session.commit()
-    await bus.publish("system", f"新增数据源：{source.source_name}")
+    await bus.publish(
+        "system",
+        f"新增数据源：{source.source_name}",
+        f"New data source added: {source_name_en(source.source_name)}",
+    )
     return SourceOut(
         source_id=source.source_id,
         source_name=source.source_name,
@@ -78,37 +95,12 @@ async def trigger_source(
     return TriggerOut(source_id=source_id, sent=sent)
 
 
-# 各模块的默认演示源：抓取时确保存在，保证模块都有当天数据。
-# 注意：新闻模块只使用真实站点（东方财富/新浪/凤凰等），不再补内置演示源。
-_DEFAULT_FEEDS = [
-    ("示例资讯源 · 政治", "politics"),
-    ("示例资讯源 · 商业统计", "business"),
-    ("示例资讯源 · 金融", "finance"),
-]
-
-
-async def _ensure_default_sources(session: AsyncSession, base_url: str) -> None:
-    """补齐缺失的默认演示源（用户误删后也能自动恢复）。"""
-    base = base_url.rstrip("/")
-    for name, code in _DEFAULT_FEEDS:
-        url = f"{base}/api/demo/feed/{code}"
-        exists = (
-            await session.execute(select(DataSource.source_id).where(DataSource.url == url))
-        ).scalar_one_or_none()
-        if exists is None:
-            session.add(DataSource(source_name=name, url=url, source_type="api", status=1))
-    await session.commit()
-
-
 @router.post("/trigger-all", response_model=list[TriggerOut])
 async def trigger_all(
-    request: Request,
     _: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> list[TriggerOut]:
-    """一键抓取所有启用的数据源；先确保每个模块都有默认源。"""
-    await _ensure_default_sources(session, str(request.base_url))
-
+    """一键抓取所有启用的数据源。"""
     ids = (
         await session.execute(
             select(DataSource.source_id).where(DataSource.status == 1)
@@ -145,3 +137,69 @@ async def recent_raw_data(
         )
         for r in rows
     ]
+
+
+_TRANSLATE_CACHE_TTL = 7 * 24 * 3600
+
+
+@router.post("/raw/translate", response_model=TranslateOut)
+async def translate_raw_titles(
+    payload: TranslateIn,
+    _: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> TranslateOut:
+    """把原始数据标题翻译成英文（Redis 缓存 7 天），用于英文界面展示。"""
+    ids = payload.data_ids[:30]
+    if payload.lang != "en" or not ids:
+        return TranslateOut(items=[])
+
+    keys = [f"tr:raw:en:{data_id}" for data_id in ids]
+    cached = await redis_client.mget(keys)
+
+    result: dict[str, str] = {}
+    missing: list[uuid.UUID] = []
+    for data_id, value in zip(ids, cached):
+        if value:
+            result[str(data_id)] = value
+        else:
+            missing.append(data_id)
+
+    if missing:
+        rows = (
+            await session.execute(
+                select(RawData.data_id, RawData.title).where(RawData.data_id.in_(missing))
+            )
+        ).all()
+        titles = {str(rid): title for rid, title in rows if title}
+        ordered = [data_id for data_id in missing if str(data_id) in titles]
+
+        if ordered:
+            system = (
+                "你是专业财经新闻翻译。把每条中文新闻标题翻译成简洁、准确的英文，"
+                "保留机构名与专有名词。只返回 JSON 字符串数组，顺序与输入一致，不要任何解释。"
+            )
+            user = json.dumps([titles[str(i)] for i in ordered], ensure_ascii=False)
+            try:
+                raw = await chat_complete(system, user)
+                start, end = raw.find("["), raw.rfind("]")
+                parsed = json.loads(raw[start:end + 1]) if start >= 0 and end > start else []
+            except Exception:
+                parsed = []
+
+            # 只有数量完全对得上才采用，避免标题错位
+            if isinstance(parsed, list) and len(parsed) == len(ordered):
+                pipe = redis_client.pipeline()
+                for data_id, translated in zip(ordered, parsed):
+                    if isinstance(translated, str) and translated.strip():
+                        text = translated.strip()
+                        result[str(data_id)] = text
+                        pipe.set(f"tr:raw:en:{data_id}", text, ex=_TRANSLATE_CACHE_TTL)
+                await pipe.execute()
+
+    return TranslateOut(
+        items=[
+            TranslatedItem(data_id=data_id, title=result[str(data_id)])
+            for data_id in ids
+            if str(data_id) in result
+        ]
+    )

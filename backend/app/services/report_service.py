@@ -137,10 +137,12 @@ class ReportService:
                 await bus.publish(
                     "report",
                     f"近 {settings.report_lookback_hours} 小时无新数据，改用最新 {len(docs)} 条历史数据生成报告",
+                    f"No new data in the last {settings.report_lookback_hours} hours; using the latest {len(docs)} historical items",
                 )
             await bus.publish(
                 "report",
                 f"为 {user_id} 聚合到 {len(docs)} 条原始数据，开始生成报告",
+                f"Aggregated {len(docs)} raw items for {user_id}; generating report",
                 modules=ctx.module_names,
             )
 
@@ -155,7 +157,9 @@ class ReportService:
             section_rows = [(s.section_id, s.content) for s in report.sections]
 
         await bus.publish(
-            "report", f"报告已落库（含 {len(section_rows)} 个段落、{len(docs)} 条溯源）",
+            "report",
+            f"报告已落库（含 {len(section_rows)} 个段落、{len(docs)} 条溯源）",
+            f"Report saved ({len(section_rows)} sections, {len(docs)} citations)",
             report_id=str(report_id),
         )
 
@@ -163,13 +167,17 @@ class ReportService:
         try:
             await self._index_sections(section_rows)
             await bus.publish(
-                "report", "报告段落已向量化，可用于对话检索", report_id=str(report_id)
+                "report",
+                "报告段落已向量化，可用于对话检索",
+                "Report sections embedded for chat retrieval",
+                report_id=str(report_id),
             )
         except Exception as exc:  # noqa: BLE001
             logger.exception("报告向量化失败 report_id=%s", report_id)
             await bus.publish(
                 "embed",
                 f"报告向量化失败（报告已生成，可稍后重试）：{exc}",
+                f"Report embedding failed (report generated; retry later): {exc}",
                 level="error",
                 report_id=str(report_id),
             )
@@ -222,7 +230,12 @@ class ReportService:
             await session.commit()
 
         await self._index_sections(section_rows)
-        await bus.publish("report", f"报告已翻译为{target}", report_id=str(report_id))
+        await bus.publish(
+            "report",
+            f"报告已翻译为{target}",
+            f"Report translated to {'English' if lang == 'en' else 'Chinese'}",
+            report_id=str(report_id),
+        )
         return True
 
     # =====================================================================

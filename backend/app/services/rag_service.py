@@ -70,7 +70,12 @@ class RagService:
         cached = await get_cached_answer(cache_key)
         if cached is not None:
             logger.debug("命中问答缓存: %s", cache_key)
-            await bus.publish("chat", "问答命中 Redis 缓存，直接返回", cached=True)
+            await bus.publish(
+                "chat",
+                "问答命中 Redis 缓存，直接返回",
+                "Answer served from Redis cache",
+                cached=True,
+            )
             return {**cached, "cached": True}
 
         # 2) Redis 短期上下文（多轮对话记忆）
@@ -83,7 +88,12 @@ class RagService:
             hits = await store.search(
                 query_vec, top_k=6, owner_types=["report_section", "raw_data"]
             )
-        await bus.publish("chat", f"向量检索命中 {len(hits)} 个片段", hits=len(hits))
+        await bus.publish(
+            "chat",
+            f"向量检索命中 {len(hits)} 个片段",
+            f"Vector search matched {len(hits)} chunks",
+            hits=len(hits),
+        )
 
         # 4) 拼装 Prompt 并调用 LLM
         retrieved = "\n\n".join(
@@ -118,7 +128,12 @@ class RagService:
         await append_chat_context(str(session_id), {"role": "user", "content": question})
         await append_chat_context(str(session_id), {"role": "ai", "content": answer})
         await set_cached_answer(cache_key, result)
-        await bus.publish("chat", "已生成回答，写回 chat_messages 与 Redis 缓存", cached=False)
+        await bus.publish(
+            "chat",
+            "已生成回答，写回 chat_messages 与 Redis 缓存",
+            "Answer generated; saved to chat_messages and Redis cache",
+            cached=False,
+        )
 
         # 刷新会话活跃时间（供列表排序/冷热判定）
         await redis_client.expire(f"chat:ctx:{session_id}", settings.redis_chat_context_ttl)
