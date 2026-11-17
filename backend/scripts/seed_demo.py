@@ -4,7 +4,7 @@ r"""种子数据：演示用数据源 + 演示账号。
     .\.venv\Scripts\python.exe scripts\seed_demo.py
 
 说明：
-  * 演示数据源指向本服务的本地模拟资讯接口（真实走 HTTP 抓取，内容可控）；
+  * 只登记真实财经站点（爬虫）；示例数据源已停用，不再写入；
   * 需先启动后端服务（uvicorn 监听 8000），抓取时才能取到数据。
 """
 from __future__ import annotations
@@ -23,6 +23,13 @@ from app.db.session import AsyncSessionLocal  # noqa: E402
 
 BASE = "http://127.0.0.1:8000"
 
+DEMO_SOURCES = [
+    ("示例资讯源 · 新闻", f"{BASE}/api/demo/feed/news", "api"),
+    ("示例资讯源 · 政治", f"{BASE}/api/demo/feed/politics", "api"),
+    ("示例资讯源 · 商业统计", f"{BASE}/api/demo/feed/business", "api"),
+    ("示例资讯源 · 金融", f"{BASE}/api/demo/feed/finance", "api"),
+]
+
 # 真实财经资讯站点（爬虫）。
 # 这些站点均为 JS 渲染或结构特殊，已在 app/services/ingestion_service.py 的 _SITE_PROFILES
 # 中按域名配置了列表选择器；抓取时走「列表页 → 文章页正文」。
@@ -31,9 +38,6 @@ REAL_SOURCES = [
     ("财经资讯 · 新浪财经", "https://finance.sina.com.cn/", "crawler"),
     ("财经资讯 · 第一财经", "https://www.yicai.com/news/", "crawler"),
     ("财经资讯 · 凤凰财经", "https://finance.ifeng.com/", "crawler"),
-    # 政策 / 宏观统计
-    ("政策时政 · 新华网", "http://www.news.cn/politics/", "crawler"),
-    ("商业统计 · 国家统计局", "https://www.stats.gov.cn/sj/zxfb/", "crawler"),
     # 国际 / 全球市场来源
     ("国际财经 · CNBC", "https://www.cnbc.com/world/?region=world", "crawler"),
     ("国际财经 · 智通财经", "https://www.zhitongcaijing.com/", "crawler"),
@@ -41,11 +45,13 @@ REAL_SOURCES = [
     ("国际财经 · 东方财富国际", "https://finance.eastmoney.com/a/cgjjj.html", "crawler"),
 ]
 
+# 示例数据源已停用：播种时只登记真实站点，避免重新引入示例数据。
+# DEMO_SOURCES 的定义保留作参考，不再参与播种。
 ALL_SOURCES = REAL_SOURCES
 
 DEMO_USER = {
     "username": "demo",
-    "email": "demo@finbrief.local",
+    "email": "demo@domel.local",
     "password": "demo1234",
     "roles": ["Manager"],
     "modules": ["news", "politics", "business", "finance"],

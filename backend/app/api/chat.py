@@ -4,10 +4,11 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.core.cache import redis_client
 from app.db.models import ChatMessage, ChatSession, User
 from app.db.session import get_session
 from app.schemas import AskIn, AskOut, ChatMessageOut, ChatSessionOut
@@ -81,6 +82,31 @@ async def list_messages(
         )
         for m in rows
     ]
+
+
+@router.delete("/sessions/{session_id}")
+async def delete_session(
+    session_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """删除一个对话：消息记录、会话本身，以及 Redis 里的上下文与问答缓存。"""
+    owner = await session.get(ChatSession, session_id)
+    if owner is None or owner.user_id != user.user_id:
+        raise HTTPException(404, "会话不存在")
+
+    await session.execute(
+        delete(ChatMessage).where(ChatMessage.session_id == session_id)
+    )
+    await session.delete(owner)
+    await session.commit()
+
+    # Redis 里还留着这轮的短期上下文和问答缓存，不清掉会出现「删了还能问出旧答案」
+    await redis_client.delete(f"chat:ctx:{session_id}")
+    async for key in redis_client.scan_iter(f"chat:a:{session_id}:*"):
+        await redis_client.delete(key)
+
+    return {"ok": True, "deleted": str(session_id)}
 
 
 @router.post("/ask", response_model=AskOut)

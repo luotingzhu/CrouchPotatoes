@@ -33,8 +33,10 @@ from app.core.cache import (
     set_cached_answer,
 )
 from app.core.config import get_settings
+from sqlalchemy import select
+
 from app.core.events import bus
-from app.db.models import ChatMessage
+from app.db.models import ChatMessage, RawData, ReportSection, ReportSource
 from app.db.session import AsyncSessionLocal
 from app.services.ai_client import chat_complete, embed_texts
 from app.services.vector_store import get_vector_store
@@ -43,14 +45,17 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 RAG_SYSTEM_PROMPT = (
-    "你是 FinBrief 电机市场情报助手。请严格基于【检索到的资料】回答用户问题，"
+    "你是 finbrief 电机市场情报助手。请严格基于【检索到的资料】回答用户问题，"
     "并在结论后用 [编号] 标注出处；资料不足时明确说明，不要编造。"
+    "不要使用 Markdown 标记（不要 **加粗**、不要 # 标题），输出纯文本，"
+    "需要分层时用数字序号或「-」开头的短横线。"
 )
 
 RAG_SYSTEM_PROMPT_EN = (
-    "You are the FinBrief motor market intelligence assistant. Answer strictly from the retrieved "
+    "You are the finbrief motor market intelligence assistant. Answer strictly from the retrieved "
     "material, cite sources with [n] markers, and state clearly when evidence is insufficient. "
-    "Never fabricate facts. Answer in English."
+    "Never fabricate facts. Answer in English. Do not use Markdown formatting — no **bold** and "
+    "no # headings; use numbers or a leading hyphen for lists."
 )
 
 
@@ -70,12 +75,7 @@ class RagService:
         cached = await get_cached_answer(cache_key)
         if cached is not None:
             logger.debug("命中问答缓存: %s", cache_key)
-            await bus.publish(
-                "chat",
-                "问答命中 Redis 缓存，直接返回",
-                "Answer served from Redis cache",
-                cached=True,
-            )
+            await bus.publish("chat", "问答命中 Redis 缓存，直接返回", cached=True)
             return {**cached, "cached": True}
 
         # 2) Redis 短期上下文（多轮对话记忆）
@@ -85,15 +85,12 @@ class RagService:
         query_vec = (await embed_texts([question]))[0]
         async with AsyncSessionLocal() as session:
             store = get_vector_store(session)
+            # 保留同一来源的多个分块：长文里的不同事实分布在不同段落，
+            # 去重会直接丢掉检索能力。引用列表的合并放到前端做。
             hits = await store.search(
                 query_vec, top_k=6, owner_types=["report_section", "raw_data"]
             )
-        await bus.publish(
-            "chat",
-            f"向量检索命中 {len(hits)} 个片段",
-            f"Vector search matched {len(hits)} chunks",
-            hits=len(hits),
-        )
+        await bus.publish("chat", f"向量检索命中 {len(hits)} 个片段", hits=len(hits))
 
         # 4) 拼装 Prompt 并调用 LLM
         retrieved = "\n\n".join(
@@ -121,23 +118,113 @@ class RagService:
         result = {
             "session_id": str(session_id),
             "answer": answer,
-            "references": [h.owner_id for h in hits],
+            "references": await self._build_references(hits),
             "cached": False,
         }
         await self._persist_messages(session_id, question, answer)
         await append_chat_context(str(session_id), {"role": "user", "content": question})
         await append_chat_context(str(session_id), {"role": "ai", "content": answer})
         await set_cached_answer(cache_key, result)
-        await bus.publish(
-            "chat",
-            "已生成回答，写回 chat_messages 与 Redis 缓存",
-            "Answer generated; saved to chat_messages and Redis cache",
-            cached=False,
-        )
+        await bus.publish("chat", "已生成回答，写回 chat_messages 与 Redis 缓存", cached=False)
 
         # 刷新会话活跃时间（供列表排序/冷热判定）
         await redis_client.expire(f"chat:ctx:{session_id}", settings.redis_chat_context_ttl)
         return result
+
+    async def _build_references(self, hits) -> list[dict]:
+        """把检索命中还原成可读引用：标题 + 原地址，序号与 prompt 里的 [n] 一一对应。"""
+        raw_ids = [h.owner_id for h in hits if h.owner_type == "raw_data"]
+        sec_ids = [h.owner_id for h in hits if h.owner_type == "report_section"]
+        raw_map: dict = {}
+        sec_map: dict = {}
+        report_src_map: dict = {}
+
+        async with AsyncSessionLocal() as session:
+            if raw_ids:
+                rows = (
+                    await session.execute(
+                        select(RawData.data_id, RawData.title, RawData.url, RawData.publish_time)
+                        .where(RawData.data_id.in_(raw_ids))
+                    )
+                ).all()
+                raw_map = {str(r[0]): r for r in rows}
+            if sec_ids:
+                rows = (
+                    await session.execute(
+                        select(
+                            ReportSection.section_id,
+                            ReportSection.section_type,
+                            ReportSection.report_id,
+                        ).where(ReportSection.section_id.in_(sec_ids))
+                    )
+                ).all()
+                sec_map = {str(r[0]): r for r in rows}
+
+                # 报告章节背后引用了哪些原始文章：章节 → report → report_sources → raw_data
+                report_ids = {r[2] for r in rows}
+                links = (
+                    await session.execute(
+                        select(ReportSource.report_id, ReportSource.data_id)
+                        .where(ReportSource.report_id.in_(report_ids))
+                    )
+                ).all()
+                data_ids = [r[1] for r in links]
+                if data_ids:
+                    drows = (
+                        await session.execute(
+                            select(RawData.data_id, RawData.title, RawData.url)
+                            .where(RawData.data_id.in_(data_ids))
+                        )
+                    ).all()
+                    dmap = {str(r[0]): (r[1], r[2]) for r in drows}
+                    for rid, did in links:
+                        pair = dmap.get(str(did))
+                        if pair:
+                            report_src_map.setdefault(str(rid), []).append(pair)
+
+        refs: list[dict] = []
+        for i, h in enumerate(hits, 1):
+            snippet = " ".join((h.chunk_text or "").split())[:90]
+            if h.owner_type == "raw_data":
+                row = raw_map.get(str(h.owner_id))
+                refs.append({
+                    "index": i,
+                    "owner_type": "raw_data",
+                    "title": row[1] if row else None,
+                    "url": row[2] if row else None,
+                    "section_type": None,
+                    "published_at": row[3].isoformat() if row and row[3] else None,
+                    "snippet": snippet,
+                    "sources": [],
+                })
+            elif h.owner_type == "report_section":
+                row = sec_map.get(str(h.owner_id))
+                behind = [
+                    {"title": t, "url": u}
+                    for t, u in report_src_map.get(str(row[2]), [])[:3]
+                ] if row else []
+                refs.append({
+                    "index": i,
+                    "owner_type": "report_section",
+                    "title": None,
+                    "url": None,
+                    "section_type": row[1] if row else None,
+                    "published_at": None,
+                    "snippet": snippet,
+                    "sources": behind,
+                })
+            else:
+                refs.append({
+                    "index": i,
+                    "owner_type": h.owner_type,
+                    "title": None,
+                    "url": None,
+                    "section_type": None,
+                    "published_at": None,
+                    "snippet": snippet,
+                    "sources": [],
+                })
+        return refs
 
     async def _persist_messages(
         self, session_id: uuid.UUID, question: str, answer: str

@@ -31,13 +31,11 @@ class EventBus:
         """最近 n 条事件（供状态接口一次性回放）。"""
         return self._history[-n:]
 
-    async def publish(self, stage: str, message: str, message_en: str | None = None, **extra: Any) -> None:
+    async def publish(self, stage: str, message: str, **extra: Any) -> None:
         event = {
             "ts": datetime.now(timezone.utc).isoformat(),
             "stage": stage,          # crawl / ingest / embed / report / chat / system
             "message": message,
-            # 英文文案：前端英文界面优先展示；未提供时回退中文
-            "message_en": message_en or message,
             **extra,
         }
         self._history.append(event)

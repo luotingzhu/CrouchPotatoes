@@ -1,0 +1,624 @@
+================================================================================
+        DOMEL - MOTOR MARKET INTELLIGENCE AI ASSISTANT
+        TECHNICAL PROTOTYPE REPORT
+================================================================================
+Document type : Technical prototype report
+Product       : Domel - Motor Market Intelligence AI Assistant
+Version       : 1.0 (course prototype)
+Date          : 2026-11-04
+Status        : Working local prototype, end-to-end verified
+
+================================================================================
+1. EXECUTIVE SUMMARY
+================================================================================
+
+Domel is a browser-based, enterprise-style ("B2B") market intelligence assistant
+for the electric motor industry. It addresses a common internal problem: market
+signals are scattered across many sources, the volume is too large to read
+manually, and decision-makers lose time reconciling inconsistent information.
+
+The prototype demonstrates a complete loop:
+
+    multi-source ingestion -> structured storage -> AI synthesis -> traceable
+    report -> retrieval-augmented conversation -> live backend observability
+
+Every stage runs for real on a developer laptop. Source articles are fetched over
+HTTP from real financial news sites, stored in PostgreSQL (with monthly range
+partitions), embedded with a real embedding model, and stored in pgvector. Reports
+and answers are produced by a real LLM (DeepSeek). No generated content is mocked.
+
+The system is deliberately scoped as a prototype, not a production service. It is
+single-tenant, runs on one machine, and uses an in-process message broker and
+scheduler in place of Kafka and Airflow. The Kafka adapter and Airflow-compatible
+service boundaries are retained so the prototype can be promoted to the full
+stack without redesigning the business logic.
+
+================================================================================
+2. PROBLEM STATEMENT AND PRODUCT SCOPE
+================================================================================
+
+2.1 Problem
+    - Market data arrives from heterogeneous sources (news portals, policy
+      releases, statistical bulletins, financial wires) in different formats.
+    - Analysts spend significant time filtering noise and reconciling duplicates.
+    - Existing dashboards show raw items but do not synthesize them into
+      role-specific, decision-ready intelligence.
+    - Users cannot ask follow-up questions against the underlying dataset.
+
+2.2 Product scope
+    In scope:
+      - User accounts with roles (Manager / Sales / Tech) and module subscriptions
+        (News / Politics / Business Statistics / Finance).
+      - Configurable data sources (API or crawler) with scheduled or manual fetch.
+      - Normalization, deduplication, persistence and vectorization of raw items.
+      - Personalized report generation with three analytical sections and full
+        source traceability.
+      - Multi-turn retrieval-augmented chat over the ingested corpus and reports.
+      - A live backend status console for demonstrations.
+      - Bilingual UI (Simplified Chinese / English).
+      - An admin mode that gates the backend observability module.
+
+    Out of scope for the prototype:
+      - Multi-tenant isolation, billing, and enterprise SSO.
+      - Horizontal scaling of the ingestion workers.
+      - Human-in-the-loop editorial review of generated reports.
+
+================================================================================
+3. SYSTEM ARCHITECTURE
+================================================================================
+
+3.1 Logical layers
+
+    Presentation
+      Single-page HTML application (vanilla JavaScript), served directly by the
+      API service. No build step, no Node.js runtime required.
+
+    API
+      FastAPI application exposing authentication, preference, source, report,
+      chat and system endpoints. Async request handling throughout.
+
+    Application services
+      IngestionService, ReportService, RagService, vector-store abstraction,
+      AI client abstraction.
+
+    Messaging
+      Broker interface with two implementations:
+        - MemoryBroker  (default for the local prototype, asyncio queues)
+        - KafkaBroker   (optional, enabled through configuration)
+
+    Persistence
+      PostgreSQL 16 with pgvector, pgcrypto and pg_trgm.
+      Redis 7 for sessions, chat short-term context and answer caching.
+
+    External AI services
+      DeepSeek chat completion API (OpenAI-compatible protocol).
+      SiliconFlow embeddings API (BAAI/bge-m3, 1024 dimensions).
+
+3.2 Primary data flows
+
+    (A) Ingestion
+        Scheduler or manual trigger
+          -> fetch API/HTML source
+          -> normalize to a common document shape
+          -> publish to broker topic
+          -> consumer deduplicates and inserts into raw_data
+          -> chunk, embed and write vectors (pgvector)
+
+    (B) Report generation
+        User clicks "Generate report"
+          -> load roles and enabled modules
+          -> select raw items in the look-back window (72 h by default)
+          -> if the window is empty, fall back to the newest historical items
+          -> three LLM calls (summary, economic analysis, policy)
+          -> persist report, sections and source links in one transaction
+          -> chunk and embed report sections for later retrieval
+
+    (C) RAG conversation
+        Question
+          -> Redis answer cache lookup (cache-first)
+          -> embed question
+          -> cosine similarity search in pgvector (HNSW index)
+          -> assemble retrieved context plus recent chat turns
+          -> LLM answer with citations
+          -> persist messages, update Redis context and answer cache
+
+    (D) Observability
+        Backend emits pipeline events to an in-process event bus.
+        The browser receives them over Server-Sent Events (SSE).
+        A status endpoint returns live table counts, partition names, vector
+        counts and connectivity probes.
+
+================================================================================
+4. TECHNOLOGY STACK
+================================================================================
+
+    Layer                 Technology
+    --------------------  ------------------------------------------------------
+    API framework         FastAPI, Uvicorn
+    ORM                   SQLAlchemy 2.0 (async, typed mappings)
+    Primary database      PostgreSQL 16 + pgvector
+    Cache / sessions      Redis 7
+    Message broker        In-memory asyncio broker (Kafka adapter available)
+    Scheduler             In-process asyncio scheduler (Airflow-compatible tasks)
+    Vector search         pgvector with HNSW cosine index
+    LLM                   DeepSeek (deepseek-chat), OpenAI-compatible protocol
+    Embeddings            SiliconFlow BAAI/bge-m3 (1024 dimensions)
+    Crawling              httpx, BeautifulSoup4, lxml
+    Frontend              Single-page HTML + vanilla JavaScript + CSS
+    Local infrastructure  Docker Compose (pgvector/pgvector:pg16, redis:7-alpine)
+    Runtime               Python 3.12 inside a project-local virtual environment
+
+Rationale for the substitutions:
+    - Kafka and Airflow add substantial operational weight and would make a
+      live classroom demonstration fragile. The Broker and Scheduler interfaces
+      keep the same boundaries, so switching to Kafka/Airflow is a configuration
+      and deployment change rather than a rewrite.
+    - pgvector avoids running a separate vector database while still providing
+      approximate nearest-neighbour search with an HNSW index.
+
+================================================================================
+5. DATA MODEL AND POSTGRESQL PHYSICAL DESIGN
+================================================================================
+
+5.1 Core entities (21 tables)
+
+    Users and permissions
+      users, roles, user_roles
+
+    Personalization
+      modules, user_module_prefs
+
+    Sources and raw data
+      data_sources, raw_data (partitioned)
+
+    Reports
+      reports, report_sections, report_sources
+
+    Conversation
+      chat_sessions, chat_messages (partitioned)
+
+    Vector storage
+      embeddings
+
+5.2 Key design decisions
+
+    Primary keys
+      UUID (gen_random_uuid) for business entities. A snowflake/BIGINT alternative
+      is documented in the DDL for teams that prefer ordered identifiers.
+
+    Data types
+      TEXT for long-form content, TIMESTAMPTZ for all time values, JSONB for
+      flexible metadata.
+
+    Partitioning
+      raw_data is RANGE-partitioned by publish_time, monthly.
+      chat_messages is RANGE-partitioned by created_at, monthly.
+      A DEFAULT partition catches out-of-range writes.
+      The partition key is part of the primary key, which PostgreSQL requires:
+        raw_data      PRIMARY KEY (data_id, publish_time)
+        chat_messages PRIMARY KEY (message_id, created_at)
+
+    Foreign keys
+      All relationships are enforced. report_sources uses a composite foreign key
+      (data_id, data_publish_time) because the referenced raw_data table is
+      partitioned and its primary key includes the partition key.
+
+    Indexing
+      - B-tree indexes on every foreign key and on time columns.
+      - GIN full-text index on raw_data content (expression index over
+        title + content) and on report_sections content.
+      - GIN trigram index on raw_data content for Chinese substring matching.
+      - GIN jsonb_path_ops index on raw_data metadata.
+      - HNSW cosine index on embeddings for approximate nearest-neighbour search.
+
+    Partition maintenance
+      ensure_monthly_partition(parent_table, month) creates partitions
+      idempotently. The schema pre-creates the current month and the next two
+      months for both partitioned tables.
+
+    Lifecycle management
+      archive_old_partitions(keep_months) detaches partitions older than the
+      retention threshold and moves them into an archive schema. This avoids
+      large DELETE operations and keeps the hot path small.
+
+5.3 Vector storage
+      embeddings(owner_type, owner_id, chunk_index, chunk_text, embedding,
+                 model_name, created_at)
+      owner_type distinguishes raw_data, report_section and chat_message chunks.
+      The vector dimension is 1024 to match BAAI/bge-m3. The dimension is
+      configured in one place and reused by the ORM mapping.
+
+================================================================================
+6. ORM LAYER (SQLALCHEMY 2.0)
+================================================================================
+
+The ORM mirrors the DDL one-to-one and uses typed, async mappings:
+
+    - DeclarativeBase with a naming convention so generated constraint names are
+      stable and migration-friendly.
+    - Mapped[...] / mapped_column(...) annotations for static type checking.
+    - Partitioned tables declared with
+      {"postgresql_partition_by": "RANGE (publish_time)"}.
+    - Composite primary keys and ForeignKeyConstraint for the traceability table.
+    - JSONB columns; the ORM attribute is named "meta" because "metadata" is
+      reserved by SQLAlchemy.
+    - Vector columns use pgvector.sqlalchemy.Vector, with the dimension read from
+      configuration.
+
+An async engine and session factory provide per-request sessions with automatic
+rollback on error.
+
+================================================================================
+7. DATA INGESTION PIPELINE
+================================================================================
+
+7.1 Source configuration
+      Each source row declares a name, URL, type (api or crawler) and status.
+      Real crawler sources currently configured include East Money, Sina Finance,
+      Yicai, Phoenix Finance, CNBC, Zhitong Caijing, Gelonghui and East Money
+      International.
+
+7.2 Crawl and normalize
+      API sources: HTTP GET, JSON parsing, field mapping.
+      Crawler sources: site-specific profiles resolve list pages, follow article
+      links, extract the main body, parse a publication timestamp when present,
+      and drop pages whose body is too short (advertising or redirect pages).
+      A generic fallback handles article-like structures.
+
+      Every item is normalized to:
+        source_id, module_id, title, content, url, publish_time, metadata
+
+7.3 Broker and decoupling
+      The crawler publishes normalized documents to a broker topic; the consumer
+      inserts them. This separates fetch throughput from database throughput and
+      makes retries and replay possible. In the prototype the broker is an
+      in-process queue; the Kafka implementation is selected by configuration.
+
+7.4 Deduplication and the "daily snapshot" rule
+      Deduplication uses a SHA-256 content hash per source. A repeated article is
+      skipped, which prevents duplicate rows on re-crawl.
+
+      For the built-in demonstration feeds, content carries a daily snapshot
+      marker ("data snapshot date: YYYY-MM-DD"). The hash therefore changes once
+      per day, so a fetch always introduces today's items for every module, while
+      repeated fetches on the same day remain idempotent.
+
+      Before a full fetch, the API also verifies that the default demonstration
+      sources for the modules still exist, restoring any that were removed.
+
+7.5 Vectorization
+      Each stored item is split into overlapping chunks, embedded in batches and
+      written to the vector store. Embedding runs after the database transaction
+      commits, so an external API failure cannot roll back persisted raw data.
+      Failures are reported as a distinct pipeline event and can be retried by
+      the backfill utility.
+
+7.6 Backfill utility
+      scripts/backfill_embeddings.py re-embeds historical rows that have no
+      vectors. It is idempotent and is the standard procedure after changing the
+      embedding model or dimension.
+
+================================================================================
+8. AI REPORT GENERATION
+================================================================================
+
+8.1 Personalization inputs
+      - Roles (Manager / Sales / Tech) shape the analytical tone and priorities.
+      - Enabled modules determine which raw items are eligible.
+      - The look-back window defaults to 72 hours (configurable).
+
+8.2 Synthesis
+      Three targeted prompts produce three sections:
+        summary   - 5-8 highlighted findings with citation markers
+        economic  - supply/demand, pricing, capacity and competition
+        policy    - regulations, subsidies and their implications
+      The model is instructed to use only the supplied corpus and to state when
+      evidence is insufficient. Output language follows the requested language
+      (Chinese or English).
+
+8.3 Persistence and traceability
+      The report, its sections and its source links are written in one
+      transaction. Each report source retains the referenced raw_data id, its
+      publish time, a relevance score and a snippet. This makes every claim
+      traceable to original material.
+
+8.4 Freshness policy
+      The service first selects items inside the look-back window. If none exist
+      for the user's subscribed modules, it falls back to the newest historical
+      items so the user still receives a report. The API then reports:
+        - data_stale            true when all cited material predates the window
+        - latest_source_time    timestamp of the newest cited item
+        - stale_module_codes    subscribed modules with no fresh data
+        - suggest_module_codes  modules that do have fresh data but are not
+                                subscribed
+      The UI renders this as an actionable warning instead of a bare error.
+
+8.5 Report presentation
+      The report detail view is structured as:
+        1. Title, generation time and status
+        2. Freshness warning (when applicable)
+        3. Table of contents with numbered anchor links
+        4. Numbered chapters (01 Highlights, 02 Economic analysis,
+           03 Government policy)
+        5. Traceable source list
+      A duplicated leading markdown heading is stripped from each chapter body.
+
+================================================================================
+9. RETRIEVAL-AUGMENTED CONVERSATION (RAG)
+================================================================================
+
+    - The question is embedded and searched against report sections and raw data
+      chunks using cosine distance over the HNSW index (top 6 by default).
+    - The prompt combines recent conversation turns, the retrieved chunks with
+      numbered markers, and the question. The model is required to cite the
+      retrieved material.
+    - Answers are persisted to chat_messages, appended to a Redis short-term
+      context list (trimmed to the last N turns), and cached by a hash of the
+      question for a configurable TTL.
+    - A repeated identical question is served from the cache and labelled as such
+      in the UI.
+
+================================================================================
+10. CACHING AND SESSION MANAGEMENT
+================================================================================
+
+    Sessions
+      Opaque bearer tokens stored in Redis with a seven-day TTL. Passwords are
+      hashed with PBKDF2-SHA256 (200,000 iterations, per-user salt).
+
+    Chat context
+      Redis lists hold the most recent turns per session, with TTL refresh on
+      activity.
+
+    Answer cache
+      Cache-aside by (session, question hash). Cache hits are explicitly marked
+      in the interface for demonstration purposes.
+
+================================================================================
+11. FRONTEND
+================================================================================
+
+    A single HTML file with embedded CSS and JavaScript, served by the API.
+
+    Views
+      - Sources and ingestion: source list, add source, fetch one/all, recent
+        ingested items.
+      - AI reports: history list, generation, detail with table of contents and
+        chapters.
+      - Knowledge chat: session list, message history, question input.
+      - Preferences: role and module selection, admin mode.
+      - Backend status (admin only): live table counts, partitions, vector count,
+        runtime configuration and an SSE event stream.
+
+    Live feedback
+      A persistent bottom bar displays the latest pipeline event. The backend
+      status page consumes the SSE stream directly.
+
+    Robustness
+      - API errors are normalized: FastAPI validation payloads (arrays of error
+        objects) are converted into readable messages instead of rendering as
+        "[object Object]".
+      - Client-side validation covers username length, email format and password
+        length before submission.
+      - Submit buttons are disabled while a request is in flight.
+      - A failed boot-time session probe no longer logs the user out; only a real
+        401 clears the session.
+
+================================================================================
+12. SECURITY AND ACCESS CONTROL
+================================================================================
+
+    Authentication
+      Username/password login, Redis-backed opaque session tokens, PBKDF2
+      password hashing, per-request bearer-token resolution.
+
+    Authorization
+      All data endpoints require an authenticated session. Report and chat
+      resources are scoped to the owning user.
+
+    Admin mode
+      The backend observability module is hidden by default. Enabling it requires
+      a password verified server-side with a constant-time comparison. A
+      successful unlock stores a per-user flag in Redis with an eight-hour TTL.
+      The status endpoint itself enforces the flag and returns HTTP 403 otherwise,
+      so hiding the navigation item is not the only control.
+
+    Configuration
+      Secrets (API keys, admin password, database DSN) are supplied through a
+      .env file which is excluded from version control. No credential is embedded
+      in the frontend bundle.
+
+================================================================================
+13. INTERNATIONALIZATION
+================================================================================
+
+    The interface supports Simplified Chinese and English:
+      - 162 translation keys covering all static and dynamically rendered UI text.
+      - Language selection persists in localStorage and updates the document
+        language and page title.
+      - Switching re-renders the current view in place without a page reload and
+        preserves the open report or chat session.
+      - Role and module labels, timestamps and status labels are localized.
+      - Common backend error messages have English equivalents.
+      - Data (article text, generated reports, chat answers) is not translated;
+        the report language can be requested independently of the UI language.
+
+================================================================================
+14. DEPLOYMENT AND OPERATIONS
+================================================================================
+
+14.1 Local startup
+
+    Database (inside WSL2):
+        cd /mnt/t/workshops/ent207proj/code/CrouchPotatoes
+        docker compose up -d
+
+    Backend (Windows PowerShell):
+        cd t:\workshops\ent207proj\code\CrouchPotatoes\backend
+        .\.venv\Scripts\python.exe -m uvicorn app.main:app --port 8000
+
+    Browser:
+        http://127.0.0.1:8000
+
+14.2 Containers
+      domel-postgres  pgvector/pgvector:pg16, port 5432, schema auto-applied on
+                      first initialization from db/schema.sql
+      domel-redis     redis:7-alpine, port 6379, append-only persistence
+
+14.3 Configuration highlights
+      POSTGRES_DSN, REDIS_URL, BROKER_BACKEND, VECTOR_BACKEND,
+      OPENAI_API_KEY / OPENAI_BASE_URL / LLM_MODEL,
+      EMBEDDING_API_KEY / EMBEDDING_BASE_URL / EMBEDDING_MODEL / EMBEDDING_DIM,
+      REPORT_LOOKBACK_HOURS, ADMIN_PASSWORD, ADMIN_SESSION_TTL.
+
+      The embedding dimension must match the pgvector column, the configuration
+      value and the model output. Changing the embedding model requires:
+        1) ALTER the embeddings column type and rebuild the HNSW index,
+        2) update the configured dimension,
+        3) run the backfill utility.
+
+14.4 Seed and utility scripts
+      scripts/init_db.py              execute the DDL manually
+      scripts/seed_demo.py            create demonstration sources and account
+      scripts/backfill_embeddings.py  re-embed historical rows
+
+================================================================================
+15. VERIFICATION AND TEST EVIDENCE
+================================================================================
+
+The prototype was verified end to end on the target laptop.
+
+    Database
+      21 tables created; 8 partitions present (three months plus DEFAULT for each
+      partitioned table); extensions pgvector, pgcrypto and pg_trgm installed;
+      indexes propagated to every partition.
+
+    Ingestion
+      A full fetch dispatched 70 items across 12 sources. Real crawler sources
+      returned live articles. Duplicate detection prevented re-insertion on a
+      second fetch, while the daily snapshot rule added today's items for every
+      module exactly once.
+
+    Reports
+      Report generation returned three sections with full source links. With an
+      account subscribed only to a module without recent data, the fallback
+      produced a report using the newest historical items and the API returned
+      data_stale = true together with the affected and suggested modules.
+
+    RAG
+      A question retrieved six chunks, produced a cited answer, and a repeated
+      identical question was served from the Redis cache (verified in the UI and
+      in the event stream).
+
+    Frontend
+      Login, all five views, report detail with table of contents and chapters,
+      chat, admin unlock and the live event stream were exercised in a real
+      browser with no application JavaScript errors.
+
+    Email and registration
+      A 13-case matrix validated the email rule: malformed addresses, consecutive
+      dots, leading/trailing dots, invalid labels and single-character TLDs are
+      rejected; valid addresses are accepted; case-only duplicates are detected
+      after normalization.
+
+    Admin mode
+      Unauthenticated status access returns 401, authenticated access without
+      unlock returns 403, a wrong password returns 403, and a correct password
+      unlocks the module for eight hours. Locking immediately hides the
+      navigation entry.
+
+================================================================================
+16. KNOWN LIMITATIONS
+================================================================================
+
+    - Single-process deployment: the in-memory broker and scheduler do not span
+      multiple workers. A production deployment must switch to Kafka and Airflow.
+    - Module classification for crawled articles relies on per-site profiles.
+      There is no general-purpose content classifier, so a new site requires a
+      profile entry.
+    - The fallback for empty time windows can surface older material; this is
+      explicitly flagged in the UI but is not a substitute for fresh sourcing.
+    - Report rendering treats section bodies as pre-wrapped text. Markdown tables
+      produced by the model are readable but not rendered as HTML tables.
+    - No incremental vector re-indexing pipeline; model changes require a manual
+      backfill.
+    - The prototype is single-tenant and has no tenant-level row security.
+
+================================================================================
+17. FUTURE ROADMAP
+================================================================================
+
+    1. Replace the in-process broker and scheduler with Kafka and Airflow, and
+       run ingestion consumers as independently scalable workers.
+    2. Add a content classifier (keyword plus embedding-based) so new sources can
+       be onboarded without a hand-written profile.
+    3. Add incremental embedding updates and a re-index job triggered by model
+       changes.
+    4. Render report bodies as rich Markdown (tables, headings, lists) and support
+       PDF export.
+    5. Introduce per-tenant isolation with row-level security and audit logging.
+    6. Add evaluation harnesses for retrieval quality and report faithfulness.
+
+================================================================================
+APPENDIX A - PROJECT LAYOUT
+================================================================================
+
+    CrouchPotatoes/
+      docker-compose.yml            PostgreSQL (pgvector) and Redis
+      db/
+        schema.sql                  DDL: tables, partitions, indexes, functions
+      backend/
+        .env.example                configuration template
+        requirements.txt            runtime dependencies (pinned)
+        requirements-pipeline.txt   optional Airflow / dedicated vector DB
+        app/
+          main.py                   FastAPI application and lifespan
+          schemas.py                request and response models
+          core/                     config, cache, security, event bus
+          db/                       base, models, session
+          pipeline/                 broker abstraction, scheduler
+          api/                      auth, prefs, sources, reports, chat,
+                                    system, demo feed
+          services/                 ai_client, ingestion, report, rag,
+                                    vector_store, text_utils
+          static/index.html         single-page frontend
+        scripts/                    init_db, seed_demo, backfill_embeddings
+
+================================================================================
+APPENDIX B - KEY API ENDPOINTS
+================================================================================
+
+    POST   /api/auth/register            create account with roles and modules
+    POST   /api/auth/login               issue a session token
+    POST   /api/auth/logout              revoke the session token
+    GET    /api/auth/me                  current user with roles and modules
+    GET    /api/auth/meta                role and module dictionaries
+
+    GET    /api/prefs                    current personalization
+    PUT    /api/prefs                    update roles and subscribed modules
+
+    GET    /api/sources                  list data sources
+    POST   /api/sources                  add a source
+    POST   /api/sources/{id}/trigger     fetch a single source
+    POST   /api/sources/trigger-all      fetch all enabled sources
+    GET    /api/sources/raw              recently ingested items
+
+    POST   /api/reports/generate         generate a report (?lang=zh|en)
+    GET    /api/reports                  report history for the current user
+    GET    /api/reports/{id}             report detail with sections and sources
+
+    GET    /api/chat/sessions            list chat sessions
+    POST   /api/chat/sessions            create a session
+    GET    /api/chat/sessions/{id}/messages   message history
+    POST   /api/chat/ask                 retrieval-augmented answer
+
+    POST   /api/system/admin/unlock      unlock admin mode
+    POST   /api/system/admin/lock        lock admin mode
+    GET    /api/system/admin/status      admin mode state
+    GET    /api/system/status            live backend metrics (admin only)
+    GET    /api/system/events            SSE pipeline event stream
+    GET    /api/health                   public health and runtime summary
+
+================================================================================
+END OF REPORT
+================================================================================

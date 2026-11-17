@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title data-i18n="app.title">FinBrief 电机市场情报 AI 助手</title>
+<title data-i18n="app.title">finbrief 电机市场情报 AI 助手</title>
 <style>
   :root{
     --navy:#1F3A5F; --accent:#2E6DA4; --accent-soft:#E8F0F9;
@@ -31,8 +31,7 @@
   #loginScreen{display:grid;place-items:center;min-height:100vh;padding:32px 20px}
   .authcard{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);
     width:100%;max-width:460px;padding:32px}
-  .brand{display:flex;align-items:center;gap:8px;margin-bottom:4px}
-  .brand-logo{width:26px;height:26px;border-radius:7px;object-fit:contain;background:#fff;flex:none}
+  .brand{display:flex;align-items:baseline;gap:8px;margin-bottom:4px}
   .brand .mark{font-weight:700;font-size:21px;color:var(--navy);letter-spacing:-.3px}
   .brand .tag{font-size:11.5px;color:var(--faint)}
   .sub{color:var(--grey);font-size:13px;margin:6px 0 22px}
@@ -119,20 +118,45 @@
 
   .list{display:flex;flex-direction:column;gap:10px}
   .list .item{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:#FCFDFF}
-  .list .item .t{font-weight:600;color:var(--ink);margin-bottom:4px;overflow-wrap:anywhere}
-  .list .item .m{font-size:12.5px;color:var(--faint);overflow-wrap:anywhere;word-break:break-word}
+  .list .item .t{font-weight:600;color:var(--ink);margin-bottom:4px}
+  .list .item .m{font-size:12.5px;color:var(--faint)}
+  .rpt-item,.chat-item{display:flex;align-items:center;gap:10px}
+  .rpt-item .rpt-main,.chat-item .chat-main{flex:1;min-width:0}
+  .rpt-item .rpt-del,.chat-item .chat-del{flex:0 0 auto}
   .sec-title{font-size:12px;letter-spacing:1.2px;text-transform:uppercase;color:var(--faint);
     font-weight:600;margin:18px 0 8px}
   .sec-body{white-space:pre-wrap;line-height:1.75;font-size:14px}
-  .src-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
-  .src-list a{font-size:12px;background:var(--accent-soft);color:var(--navy);border-radius:999px;
-    padding:4px 10px;text-decoration:none;max-width:100%;overflow-wrap:anywhere}
+  .src-list{display:flex;flex-direction:column;gap:7px;margin-top:10px;align-items:flex-start}
+  .src-list a,.src-list .src-pill{font-size:12px;background:var(--accent-soft);color:var(--navy);
+    border-radius:999px;padding:4px 10px;text-decoration:none}
+  .src-list .src-pill.sample{color:var(--faint)}
+  .src-item{display:flex;flex-direction:column;gap:2px;max-width:100%}
+  .src-url{font-size:11px;color:var(--faint);word-break:break-all;padding-left:4px}
 
   .chatlog{display:flex;flex-direction:column;gap:12px;max-height:460px;overflow:auto;padding:6px 2px}
   .msg{max-width:78%;padding:10px 14px;border-radius:12px;font-size:14px;white-space:pre-wrap;line-height:1.65}
   .msg.user{align-self:flex-end;background:var(--navy);color:#fff;border-bottom-right-radius:4px}
   .msg.ai{align-self:flex-start;background:var(--accent-soft);color:var(--ink);border-bottom-left-radius:4px}
   .msg.sys{align-self:center;background:var(--bg);color:var(--faint);font-size:12px;padding:5px 10px}
+  .refs{margin-top:12px;padding-top:9px;border-top:1px dashed var(--line);display:flex;flex-direction:column;gap:5px}
+  .refs-title{font-size:11.5px;font-weight:600;color:var(--navy);margin-bottom:1px}
+  .ref-item{font-size:12px;line-height:1.5;max-width:100%}
+  .ref-no{color:var(--accent);font-weight:600;margin-right:4px}
+  .ref-item a{color:var(--navy);text-decoration:none;border-bottom:1px solid var(--line)}
+  .ref-item .src-url{font-size:11px;color:var(--faint);word-break:break-all;padding-left:18px}
+  .ref-snippet{font-size:11px;color:var(--faint);line-height:1.45;padding-left:18px;margin-top:1px}
+  .ref-links{padding-left:18px;margin-top:2px;font-size:11px;line-height:1.6}
+  .ref-links a{color:var(--accent);text-decoration:none;margin-right:10px}
+  .ref-links a:hover{text-decoration:underline}
+  .statrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(126px,1fr));gap:10px;margin:10px 0 2px}
+  .stat{border:1px solid var(--line-soft);border-radius:10px;padding:11px 13px}
+  .stat .n{font-size:22px;font-weight:700;color:var(--navy);line-height:1.2}
+  .stat .l{font-size:11.5px;color:var(--faint);margin-top:3px}
+  .bar{margin:9px 0}
+  .bar .bhead{display:flex;justify-content:space-between;font-size:12.5px;color:var(--ink);margin-bottom:4px}
+  .bar .track{height:7px;background:var(--line-soft);border-radius:999px;overflow:hidden}
+  .bar .fill{height:100%;background:var(--accent);border-radius:999px}
+  .cached-note{margin-top:8px;font-size:11.5px;color:var(--faint)}
   .chatinput{display:flex;gap:10px;margin-top:12px}
   .chatinput input{flex:1;padding:11px 14px;border:1px solid var(--line);border-radius:10px;outline:none}
 
@@ -174,51 +198,6 @@
   .adminpwd{display:flex;gap:10px}
   .adminpwd input{flex:1;padding:9px 12px;border:1px solid var(--line);border-radius:9px;outline:none;background:#FCFDFF}
   .adminpwd input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(46,109,164,.1)}
-
-  /* ---------- 移动端 / 窄屏适配 ---------- */
-  @media (max-width: 860px){
-    /* 侧边栏改成顶部横向导航条，避免挤占正文宽度 */
-    .layout{grid-template-columns:1fr;align-content:start;min-height:calc(100vh - 54px - 40px)}
-    .sidenav{display:flex;align-items:center;gap:6px;overflow-x:auto;padding:8px 10px;
-      border-right:none;border-bottom:1px solid var(--line);-webkit-overflow-scrolling:touch}
-    .sidenav button{width:auto;flex:none;margin:0;white-space:nowrap;padding:8px 12px;font-size:13px}
-    .sidenav .dot{display:none}
-
-    .topbar .inner{height:54px;gap:10px;padding:0 12px}
-    .brand .tag{display:none}
-    #brokerChip,#vecChip{display:none}
-    #whoami{display:none}
-
-    main{padding:16px 14px 64px}
-    .card{padding:14px 14px;border-radius:12px}
-    .page-head{flex-wrap:wrap;gap:10px;margin-bottom:14px}
-    .page-head h2{font-size:17px}
-    .grid.c2,.grid.c3,.grid.c4{grid-template-columns:1fr}
-
-    /* 宽表格在窄屏内横向滚动，不再撑破页面 */
-    main table{display:block;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch}
-
-    .msg{max-width:88%}
-    .chatlog{max-height:56vh}
-    .chatinput input{min-width:0}
-    .evlog{font-size:11.5px}
-    .evlog .stg{width:50px}
-    .evlog .row{gap:6px}
-
-    #loginScreen{display:block;padding:64px 14px 32px}
-    .authcard{padding:24px 18px;border-radius:14px;max-width:100%;margin:0 auto}
-    html,body{overflow-x:hidden}
-    .kpi .n{font-size:20px}
-    .toc{padding:10px 12px}
-    #toast{right:12px;left:12px}
-  }
-  @media (max-width: 420px){
-    .langswitch button{padding:4px 8px}
-    .userchip{padding:4px 8px 4px 4px}
-    .btn.sm{padding:6px 10px;font-size:12.5px}
-    .msg{max-width:92%}
-    #langSwitchLogin{top:10px;right:10px}
-  }
 </style>
 </head>
 <body>
@@ -230,7 +209,7 @@
     <button type="button" data-lang="en">EN</button>
   </div>
   <div class="authcard">
-    <div class="brand"><img class="brand-logo" src="/static/logo.png" alt="FinBrief"><span class="mark">FinBrief</span><span class="tag" data-i18n="brand.tag"></span></div>
+    <div class="brand"><span class="mark">finbrief</span><span class="tag" data-i18n="brand.tag"></span></div>
     <p class="sub" data-i18n="auth.subtitle"></p>
 
     <div class="tabs">
@@ -241,8 +220,8 @@
     <div id="loginErr" class="err" hidden></div>
 
     <form id="loginForm">
-      <div class="field"><label data-i18n="field.username"></label><input id="li_user" autocomplete="username"></div>
-      <div class="field"><label data-i18n="field.password"></label><input id="li_pass" type="password" autocomplete="current-password"></div>
+      <div class="field"><label data-i18n="field.username"></label><input id="li_user" value="demo" autocomplete="username"></div>
+      <div class="field"><label data-i18n="field.password"></label><input id="li_pass" type="password" value="demo1234" autocomplete="current-password"></div>
       <button class="btn" style="width:100%" type="submit" data-i18n="btn.login"></button>
       <p class="hint" data-i18n="auth.hint"></p>
     </form>
@@ -262,7 +241,7 @@
 <div id="appScreen" hidden>
   <header class="topbar">
     <div class="inner">
-      <div class="brand"><img class="brand-logo" src="/static/logo.png" alt="FinBrief" style="width:24px;height:24px"><span class="mark" style="font-size:17px">FinBrief</span><span class="tag" data-i18n="brand.tag.short"></span></div>
+      <div class="brand"><span class="mark" style="font-size:17px">finbrief</span><span class="tag" data-i18n="brand.tag.short"></span></div>
       <div class="spacer"></div>
       <div class="langswitch" id="langSwitchApp">
         <button type="button" data-lang="zh">CN</button>
@@ -318,7 +297,7 @@ const fmtTime = (iso) => {
  * ============================================================ */
 const I18N = {
   zh: {
-    'app.title': 'FinBrief 电机市场情报 AI 助手',
+    'app.title': 'finbrief 电机市场情报 AI 助手',
     'brand.tag': '电机市场情报 AI 助手',
     'brand.tag.short': '市场情报 AI 助手',
     'auth.subtitle': '多源数据聚合 · AI 定制报告 · 基于知识库的多轮问答',
@@ -350,17 +329,29 @@ const I18N = {
     'sources.empty': '暂无数据源，请先运行 seed_demo.py 或在上方添加。',
     'sources.rawEmpty': '暂无数据。点上方「抓取」后稍等片刻。',
     'sources.enabled': '启用', 'sources.disabled': '停用',
+    'btn.purge': '清空抓取数据',
+    'sources.purgeConfirm': '将删除全部原始数据、向量分块和报告（数据源配置保留）。此操作不可撤销，确定继续？',
+    'sources.purgeAsk': '请输入管理员密码确认',
+    'sources.purgeDone': '已清空 {rows} 条原始数据、{reports} 份报告',
+    'stats.title': '入库概览', 'stats.rows': '原始数据', 'stats.sources': '数据源',
+    'stats.vectors': '向量分块', 'stats.latest': '最新入库',
+    'stats.byModule': '按模块', 'stats.bySource': '按来源',
+    'stats.empty': '暂无数据。点右上角「一键抓取全部」开始抓取。',
     'sources.thId': 'ID', 'sources.thName': '名称', 'sources.thType': '类型',
     'sources.thUrl': 'URL', 'sources.thStatus': '状态',
     'sources.moduleTag': '模块', 'sources.typeApi': 'API (JSON)', 'sources.typeCrawler': '爬虫 (HTML)',
     'toast.sourceAdded': '数据源已添加', 'toast.triggeringAll': '正在抓取全部数据源…',
     'toast.dispatched': '投递完成，共 {n} 条，入库中…', 'toast.sent': '已投递 {n} 条，等待入库',
     'reports.title': 'AI 情报报告',
-    'reports.subtitle': '按你的角色与订阅模块，聚合近 72 小时数据生成定制报告（真实调用大模型）',
+    'reports.subtitle': '按你的角色与订阅模块，聚合近 7 天数据生成定制报告（真实调用大模型）',
     'reports.history': '历史报告', 'reports.detail': '报告详情',
     'reports.selectHint': '选择左侧报告，或生成一份新报告。',
     'reports.empty': '暂无报告。请先抓取数据，再点「生成新报告」。',
     'reports.traced': '溯源原始数据（{n} 条）', 'reports.none': '无',
+    'btn.delete': '删除',
+    'reports.deleteConfirm': '删除这份报告？正文与溯源关联会一并删除，原始数据不受影响。',
+    'reports.deleted': '报告已删除',
+    'reports.sampleSrc': '示例数据 · 无外部链接',
     'reports.stale': '本报告仅基于过时数据生成：近 {hours} 小时无新数据，最新素材时间为 {time}。',
     'reports.staleModules': '涉及模块：{modules}。',
     'reports.staleSuggest': '「{modules}」当前有最新数据，可在「个性化配置」中订阅后重新生成。',
@@ -375,6 +366,9 @@ const I18N = {
     'chat.selectHint': '选择或新建一个会话开始提问',
     'chat.ready': '会话已就绪，开始提问吧', 'chat.thinking': '思考中…',
     'chat.error': '出错了：', 'chat.cachedNote': '（本次结果命中 Redis 缓存）',
+    'chat.refs': '参考来源', 'chat.reportSection': '报告',
+    'chat.deleteConfirm': '删除这个对话？消息记录会一并删除，不可撤销。',
+    'chat.deleted': '对话已删除',
     'chat.untitled': '会话', 'chat.empty': '暂无会话，点「新建会话」。',
     'config.title': '个性化配置',
     'config.subtitle': '角色影响报告口吻，订阅模块决定聚合哪些数据',
@@ -405,7 +399,7 @@ const I18N = {
     'val.registerFailed': '注册失败，请稍后重试'
   },
   en: {
-    'app.title': 'FinBrief Motor Market Intelligence AI',
+    'app.title': 'finbrief Motor Market Intelligence AI',
     'brand.tag': 'Motor Market Intelligence AI',
     'brand.tag.short': 'Market Intelligence AI',
     'auth.subtitle': 'Multi-source aggregation · AI-crafted reports · Knowledge-base Q&A',
@@ -438,17 +432,29 @@ const I18N = {
     'sources.empty': 'No data sources yet. Run seed_demo.py or add one above.',
     'sources.rawEmpty': 'No data yet. Click Fetch above and wait a moment.',
     'sources.enabled': 'Enabled', 'sources.disabled': 'Disabled',
+    'btn.purge': 'Clear crawled data',
+    'sources.purgeConfirm': 'This deletes all raw data, vector chunks and reports (source settings are kept). It cannot be undone. Continue?',
+    'sources.purgeAsk': 'Enter the admin password to confirm',
+    'sources.purgeDone': 'Cleared {rows} raw rows and {reports} reports',
+    'stats.title': 'Data overview', 'stats.rows': 'raw rows', 'stats.sources': 'sources',
+    'stats.vectors': 'vector chunks', 'stats.latest': 'latest ingest',
+    'stats.byModule': 'By module', 'stats.bySource': 'By source',
+    'stats.empty': 'No data yet. Click "Fetch all sources" to start.',
     'sources.thId': 'ID', 'sources.thName': 'Name', 'sources.thType': 'Type',
     'sources.thUrl': 'URL', 'sources.thStatus': 'Status',
     'sources.moduleTag': 'Module', 'sources.typeApi': 'API (JSON)', 'sources.typeCrawler': 'Crawler (HTML)',
     'toast.sourceAdded': 'Data source added', 'toast.triggeringAll': 'Fetching all data sources…',
     'toast.dispatched': 'Dispatched {n} items, ingesting…', 'toast.sent': 'Dispatched {n} items, waiting for ingestion',
     'reports.title': 'AI Intelligence Reports',
-    'reports.subtitle': 'Reports tailored to your role and modules, aggregating the last 72 hours (real LLM calls)',
+    'reports.subtitle': 'Reports tailored to your role and modules, aggregating the last 7 days (real LLM calls)',
     'reports.history': 'Report history', 'reports.detail': 'Report detail',
     'reports.selectHint': 'Select a report on the left, or generate a new one.',
     'reports.empty': 'No reports yet. Fetch data first, then click Generate report.',
     'reports.traced': 'Traced raw data ({n} items)', 'reports.none': 'None',
+    'btn.delete': 'Delete',
+    'reports.deleteConfirm': 'Delete this report? Its content and source links go with it; the raw data stays.',
+    'reports.deleted': 'Report deleted',
+    'reports.sampleSrc': 'Sample data — no external link',
     'reports.stale': 'This report is based on stale data only: no new data in the last {hours} hours; latest source is from {time}.',
     'reports.staleModules': 'Modules involved: {modules}.',
     'reports.staleSuggest': '{modules} currently have fresh data — subscribe in Preferences and regenerate.',
@@ -463,6 +469,9 @@ const I18N = {
     'chat.selectHint': 'Select or create a chat to start asking',
     'chat.ready': 'Chat is ready. Ask a question.', 'chat.thinking': 'Thinking…',
     'chat.error': 'Error: ', 'chat.cachedNote': '(this answer was served from the Redis cache)',
+    'chat.refs': 'Sources', 'chat.reportSection': 'Report',
+    'chat.deleteConfirm': 'Delete this chat? Its messages will be removed. This cannot be undone.',
+    'chat.deleted': 'Chat deleted',
     'chat.untitled': 'Chat', 'chat.empty': 'No chats yet. Click New chat.',
     'config.title': 'Preferences',
     'config.subtitle': 'Role shapes the report tone; modules decide what data is aggregated',
@@ -524,24 +533,6 @@ const MODULE_LABEL = {
   finance:  { zh: '金融',     en: 'Finance' }
 };
 
-// 数据源名称的英文对照（源名称来自数据库，属于数据，需要显式映射）
-const SOURCE_NAME_EN = {
-  '财经资讯 · 东方财富': 'Finance News · East Money',
-  '财经资讯 · 新浪财经': 'Finance News · Sina Finance',
-  '财经资讯 · 第一财经': 'Finance News · Yicai',
-  '财经资讯 · 凤凰财经': 'Finance News · Phoenix Finance',
-  '政策时政 · 新华网': 'Policy & Politics · Xinhua',
-  '商业统计 · 国家统计局': 'Business Statistics · NBS',
-  '国际财经 · CNBC': 'Global Markets · CNBC',
-  '国际财经 · 智通财经': 'Global Markets · Zhitong Finance',
-  '国际财经 · 格隆汇': 'Global Markets · Gelonghui',
-  '国际财经 · 东方财富国际': 'Global Markets · East Money Global'
-};
-function sourceLabel(s){
-  if (S.lang !== 'en') return s.source_name;
-  return SOURCE_NAME_EN[s.source_name] || s.source_name;
-}
-
 function t(key, vars){
   const dict = I18N[S.lang] || I18N.zh;
   let str = dict[key];
@@ -580,7 +571,7 @@ function applyStaticI18n(){
   if (tick) {
     if (S.events.length) {
       const last = S.events[S.events.length - 1];
-      tick.textContent = fmtTime(last.ts) + '  ' + evText(last);
+      tick.textContent = fmtTime(last.ts) + '  ' + last.message;
     } else {
       tick.textContent = t('live.waiting');
     }
@@ -842,13 +833,56 @@ function switchView(view){
 /* ============================================================
  * 视图：数据源与入库
  * ============================================================ */
+/* 入库概览：总量 + 按模块 + 按来源 */
+async function loadStats(){
+  const box = $('statsCard');
+  if (!box) return;
+  let s;
+  try { s = await api('/api/sources/stats'); }
+  catch (e) { box.innerHTML = ''; return; }
+
+  if (!s.total) {
+    box.innerHTML = `<div class="card"><h3>${t('stats.title')}</h3>`
+      + `<p style="color:var(--faint)">${t('stats.empty')}</p></div>`;
+    return;
+  }
+
+  const bar = (label, count, max, sub) => `
+    <div class="bar">
+      <div class="bhead"><span>${esc(label)}${sub ? ` <span style="color:var(--faint)">${esc(sub)}</span>` : ''}</span><b>${count}</b></div>
+      <div class="track"><div class="fill" style="width:${Math.max(3, Math.round(count / max * 100))}%"></div></div>
+    </div>`;
+
+  const maxM = Math.max(...s.by_module.map(x => x.rows), 1);
+  const maxS = Math.max(...s.by_source.map(x => x.rows), 1);
+
+  box.innerHTML = `<div class="card">
+    <h3>${t('stats.title')}</h3>
+    <div class="statrow">
+      <div class="stat"><div class="n">${s.total}</div><div class="l">${t('stats.rows')}</div></div>
+      <div class="stat"><div class="n">${s.sources}</div><div class="l">${t('stats.sources')}</div></div>
+      <div class="stat"><div class="n">${s.vectors}</div><div class="l">${t('stats.vectors')}</div></div>
+      <div class="stat"><div class="n" style="font-size:15px;line-height:1.5">${fmtTime(s.latest_at)}</div><div class="l">${t('stats.latest')}</div></div>
+    </div>
+    <div class="grid c2" style="margin-top:14px;align-items:start">
+      <div><div class="sec-title">${t('stats.byModule')}</div>
+        ${s.by_module.map(x => bar(x.name, x.rows, maxM)).join('')}</div>
+      <div><div class="sec-title">${t('stats.bySource')}</div>
+        ${s.by_source.map(x => bar(x.name, x.rows, maxS, x.type)).join('')}</div>
+    </div>
+  </div>`;
+}
+
 async function viewSources(){
   const v = $('view');
   v.innerHTML = `
     <div class="page-head"><div><h2>${t('sources.title')}</h2>
       <p>${t('sources.subtitle')}</p></div>
       <div class="spacer"></div>
+      <button class="btn ghost sm" id="btnPurge">${t('btn.purge')}</button>
       <button class="btn sm" id="btnAll">${t('btn.triggerAll')}</button></div>
+
+    <div id="statsCard"></div>
 
     <div class="card">
       <h3>${t('sources.addTitle')}</h3>
@@ -870,6 +904,8 @@ async function viewSources(){
       <div id="rawList">${t('sources.loading')}</div>
     </div>`;
 
+  loadStats();
+
   $('btnAdd').onclick = async () => {
     try {
       await api('/api/sources', {method:'POST', body: JSON.stringify({
@@ -880,7 +916,7 @@ async function viewSources(){
   $('btnAll').onclick = async () => {
     toast(t('toast.triggeringAll'));
     try { const rs = await api('/api/sources/trigger-all', {method:'POST'});
-      toast(t('toast.dispatched', {n: rs.reduce((a,b)=>a+b.sent,0)})); setTimeout(loadSources, 1500);
+      toast(t('toast.dispatched', {n: rs.reduce((a,b)=>a+b.sent,0)})); setTimeout(loadSources, 1500); setTimeout(loadSources, 6000);
     } catch (e) { toast(e.message); }
   };
   loadSources();
@@ -892,8 +928,8 @@ async function loadSources(){
     $('srcTable').innerHTML = list.length ? `
       <table><thead><tr><th>${t('sources.thId')}</th><th>${t('sources.thName')}</th><th>${t('sources.thType')}</th><th>${t('sources.thUrl')}</th><th>${t('sources.thStatus')}</th><th></th></tr></thead><tbody>
       ${list.map(s => `<tr>
-        <td class="mono">${s.source_id}</td><td>${esc(sourceLabel(s))}</td>
-        <td><span class="badge info">${S.lang === 'en' ? (s.source_type === 'api' ? 'API' : 'Crawler') : s.source_type}</span></td>
+        <td class="mono">${s.source_id}</td><td>${esc(s.source_name)}</td>
+        <td><span class="badge info">${s.source_type}</span></td>
         <td class="mono" style="color:var(--faint);max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.url)}</td>
         <td>${s.status === 1 ? `<span class="badge ok">${t('sources.enabled')}</span>` : `<span class="badge no">${t('sources.disabled')}</span>`}</td>
         <td><button class="btn ghost sm" data-trigger="${s.source_id}">${t('btn.trigger')}</button></td></tr>`).join('')}
@@ -901,7 +937,7 @@ async function loadSources(){
     $('srcTable').querySelectorAll('[data-trigger]').forEach(b => b.onclick = async () => {
       b.disabled = true; b.textContent = t('btn.triggering');
       try { const r = await api(`/api/sources/${b.dataset.trigger}/trigger`, {method:'POST'});
-        toast(t('toast.sent', {n: r.sent})); setTimeout(loadSources, 1500);
+        toast(t('toast.sent', {n: r.sent})); setTimeout(loadSources, 1500); setTimeout(loadSources, 6000);
       } catch (e) { toast(e.message); } finally { b.disabled = false; b.textContent = t('btn.trigger'); }
     });
   } catch (e) { $('srcTable').innerHTML = '<p style="color:var(--err)">' + esc(e.message) + '</p>'; }
@@ -909,20 +945,31 @@ async function loadSources(){
   try {
     const raws = await api('/api/sources/raw?limit=12');
     $('rawList').innerHTML = raws.length ? '<div class="list">' + raws.map(r => `
-      <div class="item"><div class="t" data-raw-title="${r.data_id}">${esc(r.title)}</div>
+      <div class="item"><div class="t">${esc(r.title)}</div>
       <div class="m">${t('sources.moduleTag')} #${r.module_id} · ${fmtTime(r.publish_time)} · ${esc(r.url || '')}</div></div>`).join('') + '</div>'
       : `<p style="color:var(--faint)">${t('sources.rawEmpty')}</p>`;
-    // 英文界面：异步把标题翻译成英文（后端 Redis 缓存；失败则保留原文）
-    if (S.lang === 'en' && raws.length) {
-      api('/api/sources/raw/translate', {
-        method: 'POST',
-        body: JSON.stringify({ data_ids: raws.map(r => r.data_id), lang: 'en' })
-      }).then(res => (res.items || []).forEach(it => {
-        const el = document.querySelector('[data-raw-title="' + it.data_id + '"]');
-        if (el) el.textContent = it.title;
-      })).catch(() => {});
-    }
   } catch (e) { $('rawList').innerHTML = ''; }
+
+  loadStats();
+
+  $('btnPurge').onclick = async () => {
+    if (!confirm(t('sources.purgeConfirm'))) return;
+    const pwd = prompt(t('sources.purgeAsk'));
+    if (!pwd) return;
+    const b = $('btnPurge');
+    b.disabled = true;
+    try {
+      const r = await api('/api/sources/purge', {
+        method: 'POST', body: JSON.stringify({password: pwd})
+      });
+      toast(t('sources.purgeDone', {rows: r.raw_rows, reports: r.reports}));
+      viewSources();
+    } catch (e) {
+      toast(e.message);
+    } finally {
+      b.disabled = false;
+    }
+  };
 }
 
 /* ============================================================
@@ -954,12 +1001,32 @@ async function loadReports(){
   try {
     const list = await api('/api/reports');
     $('rptList').innerHTML = list.length ? '<div class="list">' + list.map(r => `
-      <div class="item" data-rpt="${r.report_id}" style="cursor:pointer">
-        <div class="t">${esc(r.title)}</div>
-        <div class="m">${fmtTime(r.generated_time)} · ${esc(statusLabel(r.status))}</div></div>`).join('') + '</div>'
+      <div class="item rpt-item" data-rpt="${r.report_id}" style="cursor:pointer">
+        <div class="rpt-main">
+          <div class="t">${esc(r.title)}</div>
+          <div class="m">${fmtTime(r.generated_time)} · ${esc(statusLabel(r.status))}</div>
+        </div>
+        <button class="btn ghost sm rpt-del" data-del="${r.report_id}">${t('btn.delete')}</button>
+      </div>`).join('') + '</div>'
       : `<p style="color:var(--faint)">${t('reports.empty')}</p>`;
+
     $('rptList').querySelectorAll('[data-rpt]').forEach(el => el.onclick = async () => {
       try { renderDetail(await api('/api/reports/' + el.dataset.rpt)); } catch (e) { toast(e.message); }
+    });
+
+    $('rptList').querySelectorAll('[data-del]').forEach(btn => btn.onclick = async (ev) => {
+      ev.stopPropagation();               // 别触发整行的“打开报告”
+      if (!confirm(t('reports.deleteConfirm'))) return;
+      btn.disabled = true;
+      try {
+        await api('/api/reports/' + btn.dataset.del, {method: 'DELETE'});
+        toast(t('reports.deleted'));
+        if (S.report && S.report.report_id === btn.dataset.del) {
+          S.report = null;
+          $('rptDetail').innerHTML = `<p style="color:var(--faint)">${t('reports.selectHint')}</p>`;
+        }
+        loadReports();
+      } catch (e) { toast(e.message); btn.disabled = false; }
     });
   } catch (e) { $('rptList').innerHTML = '<p style="color:var(--err)">' + esc(e.message) + '</p>'; }
 }
@@ -968,7 +1035,7 @@ function staleText(r){
   const sep = S.lang === 'en' ? ', ' : '、';
   const names = (codes) => (codes || []).map(moduleLabelByCode).join(sep);
   let msg = t('reports.stale', {
-    hours: r.lookback_hours || 72,
+    hours: r.lookback_hours || 168,
     time: fmtTime(r.latest_source_time)
   });
   const stale = names(r.stale_module_codes);
@@ -976,6 +1043,25 @@ function staleText(r){
   const suggest = names(r.suggest_module_codes);
   if (suggest) msg += ' ' + t('reports.staleSuggest', {modules: suggest});
   return msg;
+}
+
+/* 示例数据的 url 指向不存在的 demo 域名，不能当成可点的外链 */
+function isSampleUrl(u){
+  u = String(u || '').trim();
+  return !u || /^(https?:\/\/)?demo\./i.test(u) || u.indexOf('demo.domel.local') >= 0;
+}
+
+/* 溯源条目：标题可点，下面直接把原地址显示出来；示例数据没有真实链接，单独标注 */
+function srcItem(s){
+  const url = String(s.url || '').trim();
+  const label = esc(s.title || s.data_id);
+  const isSample = isSampleUrl(url);
+  if (isSample) {
+    return `<div class="src-item"><span class="src-pill sample">${label}</span>`
+      + `<div class="src-url">${t('reports.sampleSrc')}</div></div>`;
+  }
+  return `<div class="src-item"><a href="${esc(url)}" target="_blank" rel="noopener">${label}</a>`
+    + `<div class="src-url">${esc(url)}</div></div>`;
 }
 
 function renderDetail(r){
@@ -1010,7 +1096,7 @@ function renderDetail(r){
     ${tocHtml}
     ${chaptersHtml}
     <div class="sec-title">${t('reports.traced', {n: r.sources.length})}</div>
-    <div class="src-list">${r.sources.map(s => `<a href="${esc(s.url||'#')}" target="_blank">${esc(s.title || s.data_id)}</a>`).join('') || `<span style="color:var(--faint)">${t('reports.none')}</span>`}</div>`;
+    <div class="src-list">${r.sources.map(srcItem).join('') || `<span style="color:var(--faint)">${t('reports.none')}</span>`}</div>`;
 
   if (needTranslate) {
     const btn = $('btnTranslate');
@@ -1063,11 +1149,32 @@ async function loadSessions(){
   try {
     const list = await api('/api/chat/sessions');
     $('sessList').innerHTML = list.length ? '<div class="list">' + list.map(s => `
-      <div class="item" data-sess="${s.session_id}" style="cursor:pointer">
-        <div class="t">${esc(s.title || t('chat.untitled'))}</div>
-        <div class="m">${fmtTime(s.last_active_at)}</div></div>`).join('') + '</div>'
+      <div class="item chat-item" data-sess="${s.session_id}" style="cursor:pointer">
+        <div class="chat-main">
+          <div class="t">${esc(s.title || t('chat.untitled'))}</div>
+          <div class="m">${fmtTime(s.last_active_at)}</div>
+        </div>
+        <button class="btn ghost sm chat-del" data-delsess="${s.session_id}">${t('btn.delete')}</button>
+      </div>`).join('') + '</div>'
       : `<p style="color:var(--faint)">${t('chat.empty')}</p>`;
+
     $('sessList').querySelectorAll('[data-sess]').forEach(el => el.onclick = () => openSession(el.dataset.sess));
+
+    $('sessList').querySelectorAll('[data-delsess]').forEach(btn => btn.onclick = async (ev) => {
+      ev.stopPropagation();               // 别触发整行的“打开会话”
+      if (!confirm(t('chat.deleteConfirm'))) return;
+      btn.disabled = true;
+      try {
+        await api('/api/chat/sessions/' + btn.dataset.delsess, {method: 'DELETE'});
+        toast(t('chat.deleted'));
+        if (S.session === btn.dataset.delsess) {
+          S.session = null;
+          $('chatlog').innerHTML = `<div class="msg sys">${t('chat.selectHint')}</div>`;
+          $('q').disabled = true; $('btnAsk').disabled = true;
+        }
+        loadSessions();
+      } catch (e) { toast(e.message); btn.disabled = false; }
+    });
   } catch (e) { $('sessList').innerHTML = '<p style="color:var(--err)">' + esc(e.message) + '</p>'; }
 }
 
@@ -1090,6 +1197,46 @@ function addMsg(role, text){
   return d;
 }
 
+/* 回答 + 引用列表：序号与正文里的 [n] 对应，有原地址就一并显示 */
+function answerHtml(r){
+  let html = esc(r.answer || '');
+  const refs = Array.isArray(r.references) ? r.references : [];
+  if (refs.length) {
+    // 同一篇文章的多个分块合并成一条，编号并列显示，例如 [1][2][3]
+    const groups = [];
+    refs.forEach((x, i) => {
+      const key = [x.url || '', x.title || '', x.section_type || '', x.owner_type || ''].join('|');
+      let g = groups.find(v => v.key === key);
+      if (!g) { g = {key, x, nos: []}; groups.push(g); }
+      g.nos.push(x.index || (i + 1));
+    });
+
+    html += `<div class="refs"><div class="refs-title">${t('chat.refs')}</div>`;
+    groups.forEach(g => {
+      const x = g.x;
+      const no = g.nos.map(n => `[${n}]`).join('');
+      const title = x.title
+        || (x.section_type ? t('chat.reportSection') + ' · ' + sectionLabel(x.section_type) : x.owner_type);
+      const snippet = x.snippet ? `<div class="ref-snippet">${esc(x.snippet)}…</div>` : '';
+      const realLinks = (Array.isArray(x.sources) ? x.sources : []).filter(s => !isSampleUrl(s.url));
+      const behind = realLinks.length
+        ? `<div class="ref-links">` + realLinks.map(s =>
+            `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title || s.url)}</a>`).join('') + `</div>`
+        : '';
+      if (!isSampleUrl(x.url)) {
+        html += `<div class="ref-item"><span class="ref-no">${no}</span>`
+          + `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(title)}</a>`
+          + snippet + `<div class="src-url">${esc(x.url)}</div>` + behind + `</div>`;
+      } else {
+        html += `<div class="ref-item"><span class="ref-no">${no}</span>${esc(title)}${snippet}${behind}</div>`;
+      }
+    });
+    html += '</div>';
+  }
+  if (r.cached) html += `<div class="cached-note">${t('chat.cachedNote')}</div>`;
+  return html;
+}
+
 async function askQuestion(){
   const q = $('q').value.trim(); if (!q || !S.session) return;
   $('q').value = ''; addMsg('user', q);
@@ -1097,7 +1244,7 @@ async function askQuestion(){
   $('btnAsk').disabled = true;
   try {
     const r = await api('/api/chat/ask', {method:'POST', body: JSON.stringify({session_id: S.session, question: q, lang: S.lang})});
-    pending.textContent = r.answer + (r.cached ? '\n\n' + t('chat.cachedNote') : '');
+    pending.innerHTML = answerHtml(r);
   } catch (e) { pending.textContent = t('chat.error') + e.message; }
   finally { $('btnAsk').disabled = false; }
 }
@@ -1248,19 +1395,13 @@ async function viewSystem(){
   clearInterval(statusTimer); statusTimer = setInterval(refresh, 4000);
 }
 
-/* 后端事件文案：英文界面优先用 message_en，缺失时回退中文 */
-function evText(e){
-  if (!e) return '';
-  return (S.lang === 'en' ? (e.message_en || e.message) : e.message) || '';
-}
-
 function paintEvents(events){
   const box = $('evlog'); if (!box) return;
   S.events = events.slice(-60);
   box.innerHTML = S.events.map(e => `
     <div class="row"><span class="ts">${fmtTime(e.ts)}</span>
     <span class="stg ${esc(e.stage)}">${esc(e.stage)}</span>
-    <span>${esc(evText(e))}</span></div>`).join('');
+    <span>${esc(e.message)}</span></div>`).join('');
   box.scrollTop = box.scrollHeight;
 }
 
@@ -1274,7 +1415,7 @@ function connectEvents(){
     let e; try { e = JSON.parse(m.data); } catch { return; }
     S.events.push(e); if (S.events.length > 200) S.events.shift();
     $('liveStage').textContent = e.stage;
-    $('liveTick').textContent = fmtTime(e.ts) + '  ' + evText(e);
+    $('liveTick').textContent = fmtTime(e.ts) + '  ' + e.message;
     if (S.view === 'system') paintEvents(S.events);
   };
   es.onerror = () => { $('liveStage').textContent = t('live.reconnecting'); };

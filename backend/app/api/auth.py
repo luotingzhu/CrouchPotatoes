@@ -64,11 +64,7 @@ async def register(payload: RegisterIn, session: AsyncSession = Depends(get_sess
 
     await session.commit()
     token = await create_session(user.user_id)
-    await bus.publish(
-        "system",
-        f"新用户注册：{user.username}",
-        f"New user registered: {user.username}",
-    )
+    await bus.publish("system", f"新用户注册：{user.username}")
     return AuthOut(
         token=token,
         user=UserOut(
@@ -92,11 +88,7 @@ async def login(payload: LoginIn, session: AsyncSession = Depends(get_session)) 
     token = await create_session(user.user_id)
     roles = await load_user_roles(session, user.user_id)
     modules = await load_user_modules(session, user.user_id)
-    await bus.publish(
-        "system",
-        f"用户登录：{user.username}",
-        f"User signed in: {user.username}",
-    )
+    await bus.publish("system", f"用户登录：{user.username}")
     return AuthOut(
         token=token,
         user=UserOut(

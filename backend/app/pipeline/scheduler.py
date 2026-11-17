@@ -58,11 +58,7 @@ class PipelineScheduler:
                     await service.run_source(source_id)
             except Exception:
                 logger.exception("调度轮次执行失败")
-            await bus.publish(
-                "system",
-                f"调度器本轮结束，下次将在 {settings.scheduler_interval_seconds}s 后执行",
-                f"Scheduler cycle finished; next run in {settings.scheduler_interval_seconds}s",
-            )
+            await bus.publish("system", f"调度器本轮结束，下次将在 {settings.scheduler_interval_seconds}s 后执行")
             try:
                 await asyncio.wait_for(
                     self._stop.wait(), timeout=settings.scheduler_interval_seconds

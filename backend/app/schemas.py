@@ -111,26 +111,22 @@ class TriggerOut(BaseModel):
     sent: int
 
 
+class PurgeIn(BaseModel):
+    password: str = ""
+
+
+class PurgeOut(BaseModel):
+    raw_rows: int
+    reports: int
+    vectors: int
+
+
 class RawDataOut(BaseModel):
     data_id: uuid.UUID
     title: str
     module_id: int
     publish_time: datetime
     url: Optional[str] = None
-
-
-class TranslateIn(BaseModel):
-    data_ids: list[uuid.UUID] = Field(default_factory=list)
-    lang: str = "en"
-
-
-class TranslatedItem(BaseModel):
-    data_id: uuid.UUID
-    title: str
-
-
-class TranslateOut(BaseModel):
-    items: list[TranslatedItem] = Field(default_factory=list)
 
 
 # ---------- 报告 ----------
@@ -191,10 +187,28 @@ class AskIn(BaseModel):
     lang: str = Field(default="zh", pattern="^(zh|en)$")   # 回答语言，与前端界面语言联动
 
 
+class ReferenceLink(BaseModel):
+    title: str | None = None
+    url: str | None = None
+
+
+class ReferenceOut(BaseModel):
+    """一条引用：序号与正文里的 [n] 对应。"""
+
+    index: int
+    owner_type: str                       # raw_data | report_section
+    title: str | None = None
+    url: str | None = None
+    section_type: str | None = None       # report_section 时用于本地化标题
+    published_at: str | None = None
+    snippet: str | None = None            # 命中的片段开头，便于区分同一章节的不同块
+    sources: list[ReferenceLink] = Field(default_factory=list)   # 报告章节背后的原始文章
+
+
 class AskOut(BaseModel):
     session_id: uuid.UUID
     answer: str
-    references: list[str] = Field(default_factory=list)
+    references: list[ReferenceOut] = Field(default_factory=list)
     cached: bool = False
 
 

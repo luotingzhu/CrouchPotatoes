@@ -5,13 +5,13 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.core.config import get_settings
-from app.db.models import Module, RawData, Report, User, UserModulePref
+from app.db.models import Embedding, Module, RawData, Report, ReportSection, User, UserModulePref
 from app.db.session import get_session
 from app.schemas import ReportBrief, ReportOut, ReportSourceOut, SectionOut
 from app.services.report_service import ReportGenerationError, ReportService
@@ -75,6 +75,42 @@ async def get_report(
     if report is None:
         raise HTTPException(404, "报告不存在")
     return await _build_out(session, report)
+
+
+@router.delete("/{report_id}")
+async def delete_report(
+    report_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """删除某份报告（章节与溯源关联级联删除，原始数据不受影响）。"""
+    report = (
+        await session.execute(
+            select(Report).where(
+                Report.report_id == report_id, Report.user_id == user.user_id
+            )
+        )
+    ).scalar_one_or_none()
+    if report is None:
+        raise HTTPException(404, "报告不存在")
+
+    # 章节向量没有外键约束，必须显式清掉，否则会留下检索不到出处的孤儿分块
+    section_ids = (
+        await session.execute(
+            select(ReportSection.section_id).where(ReportSection.report_id == report_id)
+        )
+    ).scalars().all()
+    if section_ids:
+        await session.execute(
+            delete(Embedding).where(
+                Embedding.owner_type == "report_section",
+                Embedding.owner_id.in_(section_ids),
+            )
+        )
+
+    await session.delete(report)
+    await session.commit()
+    return {"ok": True, "deleted": str(report_id)}
 
 
 @router.post("/{report_id}/translate", response_model=ReportOut)
