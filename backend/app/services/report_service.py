@@ -24,6 +24,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -67,12 +68,15 @@ ROLE_FOCUS = {
 SYSTEM_PROMPT = (
     "你是 FinBrief 电机市场情报分析助手。你只会依据给定的原始资料作答，"
     "不编造事实；如资料不足须明确说明。输出使用结构化、要点化的中文。"
+    "不要使用 Markdown 标记（不要 **加粗**、不要 # 标题、不要反引号）；"
+    "需要分层时用数字序号或「-」开头的短横线。"
 )
 
 SYSTEM_PROMPT_EN = (
     "You are the FinBrief motor market intelligence analyst. Answer strictly from the provided "
     "source material and never fabricate facts; state clearly when evidence is insufficient. "
-    "Output structured, bullet-pointed English."
+    "Output structured, bullet-pointed English. Do not use Markdown formatting — no **bold**, "
+    "no # headings and no backticks; use numbers or a leading hyphen for lists."
 )
 
 # 角色 → 英文分析侧重
@@ -146,8 +150,9 @@ class ReportService:
                 modules=ctx.module_names,
             )
 
-            # 3) LLM 分段合成
+            # 3) LLM 分段合成（模型偶尔不按语言输出，这里补一道兜底）
             sections = await self._synthesize(ctx, docs, lang)
+            sections = await self._ensure_language(sections, lang)
 
             # 4) 落库（报告 + 段落 + 溯源）
             report = await self._persist(session, ctx, docs, sections, lang)
@@ -270,17 +275,29 @@ class ReportService:
     async def _select_recent_docs(
         self, session: AsyncSession, module_ids: list[int], limit: int = 50
     ) -> list[RawData]:
+        """按模块分配配额取最近数据。
+
+        之前是全局取最新 N 条，高产的新闻源会把宏观/商业统计这类低频但关键的
+        数据挤出去；改为每个模块各取一份，再按时间合并。
+        """
         cutoff = datetime.now(timezone.utc) - timedelta(hours=settings.report_lookback_hours)
-        stmt = (
-            select(RawData)
-            .where(
-                RawData.module_id.in_(module_ids),
-                RawData.publish_time >= cutoff,       # 命中 ix_raw_data_publish_time（含分区裁剪）
+        quota = max(6, limit // max(1, len(module_ids)))
+
+        docs: list[RawData] = []
+        for mid in module_ids:
+            stmt = (
+                select(RawData)
+                .where(
+                    RawData.module_id == mid,
+                    RawData.publish_time >= cutoff,
+                )
+                .order_by(RawData.publish_time.desc())
+                .limit(quota)
             )
-            .order_by(RawData.publish_time.desc())
-            .limit(limit)
-        )
-        return list((await session.execute(stmt)).scalars().all())
+            docs.extend((await session.execute(stmt)).scalars().all())
+
+        docs.sort(key=lambda d: d.publish_time, reverse=True)
+        return docs[:limit]
 
     async def _select_latest_docs(
         self, session: AsyncSession, module_ids: list[int], limit: int = 50
@@ -345,6 +362,46 @@ class ReportService:
                 )
             sections[section_type] = await chat_complete(system_prompt, user_prompt)
         return sections
+
+    @staticmethod
+    def _cjk_ratio(text: str) -> float:
+        if not text:
+            return 0.0
+        return len(re.findall(r"[一-鿿]", text)) / len(text)
+
+    async def _ensure_language(
+        self, sections: dict[str, str], lang: str
+    ) -> dict[str, str]:
+        """确保正文语言与请求一致。
+
+        模型即使被要求用英文，偶尔仍会整段输出中文（或反过来），
+        这时在落库前自动翻一遍，用户就不必再点一次「翻译为英文」。
+        """
+        wrong = {
+            k: v for k, v in sections.items()
+            if (lang == "en" and self._cjk_ratio(v) > 0.15)
+            or (lang == "zh" and self._cjk_ratio(v) < 0.05)
+        }
+        if not wrong:
+            return sections
+
+        target = "英文（English）" if lang == "en" else "中文"
+        system = (
+            "你是专业财经翻译。只输出译文，保持数字、百分号与 [n] 引用标记不变，"
+            "不要添加任何解释或前后缀。"
+            f"目标语言：{target}。"
+        )
+        out = dict(sections)
+        for key, text in wrong.items():
+            translated = await chat_complete(system, f"请翻译以下内容：\n\n{text}")
+            if translated.strip():
+                out[key] = translated.strip()
+        await bus.publish(
+            "report",
+            f"输出语言与请求不符，已自动翻译为{target}",
+            f"Output language mismatched; auto-translated to {'English' if lang == 'en' else 'Chinese'}",
+        )
+        return out
 
     # =====================================================================
     # 步骤 4：事务落库（报告 + 段落 + 溯源）

@@ -1,4 +1,4 @@
-﻿# FinBrief 一键启动脚本：拉起数据库 -> 启动后端 -> 打印访问地址并停留
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿# FinBrief 一键启动脚本：拉起数据库 -> 启动后端 -> 打印访问地址并停留
 # 用法：双击同目录下的 start.bat
 
 param([switch]$NoPause)
@@ -26,12 +26,20 @@ try {
     Step '等待数据库就绪...'
     $dbReady = $false
     for ($i = 0; $i -lt 60; $i++) {
-        $status = wsl -e docker inspect -f '{{.State.Health.Status}}' domel-postgres 2>$null
-        if ($status -match 'healthy') { $dbReady = $true; break }
+        $status = wsl -e bash -lc "docker inspect -f '{{.State.Health.Status}}' domel-postgres domel-redis 2>/dev/null | tr '\n' ' '"
+        if ($status -match 'healthy\s+healthy') { $dbReady = $true; break }
         Start-Sleep -Seconds 1
     }
     if (-not $dbReady) { throw '数据库 60 秒内未就绪，请执行 docker compose ps 查看状态' }
     Ok '数据库已就绪'
+
+    # WSL 空闲时会自动关闭虚拟机，连带把 PostgreSQL / Redis 一起停掉（表现为用一会儿就 500）
+    # 这里挂一个常驻进程，让 WSL 虚拟机在演示期间保持运行
+    $keepAlive = wsl -e bash -lc "pgrep -f '/usr/bin/sleep infinity' >/dev/null && echo yes || echo no"
+    if ($keepAlive -notmatch 'yes') {
+        Start-Process -FilePath 'wsl.exe' -ArgumentList @('-d', 'Ubuntu', '-e', '/usr/bin/sleep', 'infinity') -WindowStyle Hidden | Out-Null
+        Ok '已保持 WSL 常驻（避免数据库随虚拟机休眠掉线）'
+    }
 
     # ---------- 2. 后端 ----------
     $portBusy = Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue

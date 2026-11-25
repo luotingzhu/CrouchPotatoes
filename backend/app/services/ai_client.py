@@ -7,12 +7,30 @@
 注意：客户端**懒加载**，未配置 key 时导入不会崩溃，只在真正调用时报明确错误。
 """
 from functools import lru_cache
+import re
 
 from openai import AsyncOpenAI
 
 from app.core.config import get_settings
 
 settings = get_settings()
+
+# 前端按纯文本渲染回答，模型自带 Markdown 时星号会直接露出来，这里统一清洗
+_MD_BOLD = re.compile(r"\*\*(.+?)\*\*", re.S)
+_MD_UNDER = re.compile(r"(?<![\w])__(.+?)__(?![\w])", re.S)
+_MD_ITALIC = re.compile(r"(?<![\w*])\*(?!\s)([^*\n]{1,80}?)(?<!\s)\*(?![\w*])")
+_MD_HEADING = re.compile(r"(?m)^[ \t]{0,3}#{1,6}[ \t]*")
+_MD_CODE = re.compile(r"`([^`\n]+)`")
+
+
+def plain_text(text: str) -> str:
+    """去掉 Markdown 强调/标题标记，保留正文与 [n] 引用编号。"""
+    text = _MD_BOLD.sub(r"\1", text)
+    text = _MD_UNDER.sub(r"\1", text)
+    text = _MD_ITALIC.sub(r"\1", text)
+    text = _MD_HEADING.sub("", text)
+    text = _MD_CODE.sub(r"\1", text)
+    return text
 
 
 @lru_cache
@@ -61,4 +79,4 @@ async def chat_complete(system: str, user: str, model: str | None = None) -> str
         ],
         temperature=0.2,
     )
-    return resp.choices[0].message.content or ""
+    return plain_text(resp.choices[0].message.content or "")

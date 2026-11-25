@@ -6,16 +6,19 @@ import json
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.core.cache import redis_client
+from app.core.config import get_settings
 from app.core.events import bus
 from app.core.source_names import source_name_en
-from app.db.models import DataSource, RawData, User
+from app.db.models import DataSource, Embedding, Module, RawData, Report, User
 from app.db.session import get_session
 from app.schemas import (
+    PurgeIn,
+    PurgeOut,
     RawDataOut,
     SourceIn,
     SourceOut,
@@ -115,6 +118,65 @@ async def trigger_all(
     return results
 
 
+@router.get("/stats")
+async def ingest_stats(
+    _: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """入库概览：总量、时间范围、按模块与按来源的分布。"""
+    total, first_at, last_at = (
+        await session.execute(
+            select(func.count(), func.min(RawData.publish_time), func.max(RawData.publish_time))
+        )
+    ).one()
+
+    by_module = (
+        await session.execute(
+            select(Module.module_code, Module.module_name, func.count())
+            .join(RawData, RawData.module_id == Module.module_id)
+            .group_by(Module.module_code, Module.module_name)
+            .order_by(func.count().desc())
+        )
+    ).all()
+
+    by_source = (
+        await session.execute(
+            select(
+                DataSource.source_name,
+                DataSource.source_type,
+                func.count(),
+                func.max(RawData.publish_time),
+            )
+            .join(RawData, RawData.source_id == DataSource.source_id)
+            .group_by(DataSource.source_name, DataSource.source_type)
+            .order_by(func.count().desc())
+        )
+    ).all()
+
+    vectors = (
+        await session.execute(
+            select(func.count()).select_from(Embedding)
+            .where(Embedding.owner_type == "raw_data")
+        )
+    ).scalar_one()
+
+    return {
+        "total": total or 0,
+        "sources": len(by_source),
+        "vectors": vectors or 0,
+        "first_at": first_at.isoformat() if first_at else None,
+        "latest_at": last_at.isoformat() if last_at else None,
+        "by_module": [
+            {"code": c, "name": n, "rows": cnt} for c, n, cnt in by_module
+        ],
+        "by_source": [
+            {"name": name, "type": stype, "rows": cnt,
+             "latest": latest.isoformat() if latest else None}
+            for name, stype, cnt, latest in by_source
+        ],
+    }
+
+
 @router.get("/raw", response_model=list[RawDataOut])
 async def recent_raw_data(
     limit: int = 30,
@@ -203,3 +265,47 @@ async def translate_raw_titles(
             if str(data_id) in result
         ]
     )
+
+
+@router.post("/purge", response_model=PurgeOut)
+async def purge_crawled_data(
+    payload: PurgeIn,
+    _: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> PurgeOut:
+    """清空抓取数据，便于重新抓取与重新生成报告。
+
+    删除：原始数据、对应的向量分块、所有报告（含章节与溯源关联）。
+    保留：数据源配置、账号、对话历史。
+    需要管理员密码，避免误触或被其他账号清库。
+    """
+    if payload.password != get_settings().admin_password:
+        raise HTTPException(403, "管理员密码不正确")
+
+    raw_count = (await session.execute(
+        select(func.count()).select_from(RawData))).scalar_one()
+    report_count = (await session.execute(
+        select(func.count()).select_from(Report))).scalar_one()
+    vector_count = (await session.execute(
+        select(func.count()).select_from(Embedding)
+        .where(Embedding.owner_type.in_(("raw_data", "report_section"))))).scalar_one()
+
+    # 报告删掉时会级联清掉 report_sections / report_sources
+    await session.execute(delete(Report))
+    await session.execute(
+        delete(Embedding).where(Embedding.owner_type.in_(("raw_data", "report_section")))
+    )
+    await session.execute(delete(RawData))
+    await session.commit()
+
+    # 问答缓存基于旧数据，一并失效
+    async for key in redis_client.scan_iter("chat:a:*"):
+        await redis_client.delete(key)
+
+    await bus.publish(
+        "system",
+        f"已清空抓取数据：{raw_count} 条原始数据、{report_count} 份报告",
+        f"Cleared crawled data: {raw_count} raw items, {report_count} reports",
+    )
+
+    return PurgeOut(raw_rows=raw_count, reports=report_count, vectors=vector_count)

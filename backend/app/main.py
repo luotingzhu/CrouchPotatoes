@@ -72,6 +72,22 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
     """
     logger.exception("未处理异常 %s %s", request.method, request.url.path)
 
+    # 依赖容器（Redis / PostgreSQL）没起来时，给出可执行的提示，而不是含糊的 500
+    from redis.exceptions import ConnectionError as RedisConnectionError
+
+    if isinstance(exc, RedisConnectionError):
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "Redis 未连接：请先启动依赖容器（运行 start.bat，或 wsl docker compose up -d）"},
+        )
+    from sqlalchemy.exc import OperationalError
+
+    if isinstance(exc, OperationalError):
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "PostgreSQL 未连接：请先启动依赖容器（运行 start.bat，或 wsl docker compose up -d）"},
+        )
+
     status_code = 500
     try:
         import openai

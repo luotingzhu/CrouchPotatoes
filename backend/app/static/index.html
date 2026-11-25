@@ -128,6 +128,31 @@
   .src-list a{font-size:12px;background:var(--accent-soft);color:var(--navy);border-radius:999px;
     padding:4px 10px;text-decoration:none;max-width:100%;overflow-wrap:anywhere}
 
+  /* ---------- 入库概览 / 引用列表 / 列表行删除按钮 ---------- */
+  .statrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(126px,1fr));gap:10px;margin:10px 0 2px}
+  .stat{border:1px solid var(--line-soft);border-radius:10px;padding:11px 13px}
+  .stat .n{font-size:22px;font-weight:700;color:var(--navy);line-height:1.2}
+  .stat .l{font-size:11.5px;color:var(--faint);margin-top:3px}
+  .bar{margin:9px 0}
+  .bar .bhead{display:flex;justify-content:space-between;font-size:12.5px;color:var(--ink);margin-bottom:4px}
+  .bar .track{height:7px;background:var(--line-soft);border-radius:999px;overflow:hidden}
+  .bar .fill{height:100%;background:var(--accent);border-radius:999px}
+  .rpt-item,.chat-item{display:flex;align-items:center;gap:10px}
+  .rpt-item .rpt-main,.chat-item .chat-main{flex:1;min-width:0}
+  .rpt-item .rpt-del,.chat-item .chat-del{flex:0 0 auto}
+  .src-url{font-size:11px;color:var(--faint);word-break:break-all;padding-left:4px}
+  .refs{margin-top:12px;padding-top:9px;border-top:1px dashed var(--line);display:flex;flex-direction:column;gap:5px}
+  .refs-title{font-size:11.5px;font-weight:600;color:var(--navy);margin-bottom:1px}
+  .ref-item{font-size:12px;line-height:1.5;max-width:100%}
+  .ref-no{color:var(--accent);font-weight:600;margin-right:4px}
+  .ref-item a{color:var(--navy);text-decoration:none;border-bottom:1px solid var(--line)}
+  .ref-item .src-url{font-size:11px;color:var(--faint);word-break:break-all;padding-left:18px}
+  .ref-snippet{font-size:11px;color:var(--faint);line-height:1.45;padding-left:18px;margin-top:1px}
+  .ref-links{padding-left:18px;margin-top:2px;font-size:11px;line-height:1.6}
+  .ref-links a{color:var(--accent);text-decoration:none;margin-right:10px}
+  .ref-links a:hover{text-decoration:underline}
+  .cached-note{margin-top:8px;font-size:11.5px;color:var(--faint)}
+
   .chatlog{display:flex;flex-direction:column;gap:12px;max-height:460px;overflow:auto;padding:6px 2px}
   .msg{max-width:78%;padding:10px 14px;border-radius:12px;font-size:14px;white-space:pre-wrap;line-height:1.65}
   .msg.user{align-self:flex-end;background:var(--navy);color:#fff;border-bottom-right-radius:4px}
@@ -336,6 +361,7 @@ const I18N = {
     'ph.question': '例：本季度电机原材料价格有哪些变化？',
     'btn.login': '登录', 'btn.register': '注册并进入', 'btn.registering': '注册中…',
     'btn.logout': '退出', 'btn.add': '添加', 'btn.trigger': '抓取', 'btn.triggering': '抓取中…',
+    'btn.delete': '删除',
     'btn.triggerAll': '一键抓取全部', 'btn.generate': '生成新报告',
     'btn.generating': '生成中…（调用大模型，约 10-30s）',
     'btn.newSession': '新建会话', 'btn.send': '发送', 'btn.save': '保存配置',
@@ -357,8 +383,16 @@ const I18N = {
     'sources.moduleTag': '模块', 'sources.typeApi': 'API (JSON)', 'sources.typeCrawler': '爬虫 (HTML)',
     'toast.sourceAdded': '数据源已添加', 'toast.triggeringAll': '正在抓取全部数据源…',
     'toast.dispatched': '投递完成，共 {n} 条，入库中…', 'toast.sent': '已投递 {n} 条，等待入库',
+    'btn.purge': '清空抓取数据',
+    'sources.purgeConfirm': '将删除全部原始数据、向量分块和报告（数据源配置保留）。此操作不可撤销，确定继续？',
+    'sources.purgeAsk': '请输入管理员密码确认',
+    'sources.purgeDone': '已清空 {rows} 条原始数据、{reports} 份报告',
+    'stats.title': '入库概览', 'stats.rows': '原始数据', 'stats.sources': '数据源',
+    'stats.vectors': '向量分块', 'stats.latest': '最新入库',
+    'stats.byModule': '按模块', 'stats.bySource': '按来源',
+    'stats.empty': '暂无数据。点右上角「一键抓取全部」开始抓取。',
     'reports.title': 'AI 情报报告',
-    'reports.subtitle': '按你的角色与订阅模块，聚合近 72 小时数据生成定制报告（真实调用大模型）',
+    'reports.subtitle': '按你的角色与订阅模块，聚合近 7 天数据生成定制报告（真实调用大模型）',
     'reports.history': '历史报告', 'reports.detail': '报告详情',
     'reports.selectHint': '选择左侧报告，或生成一份新报告。',
     'reports.empty': '暂无报告。请先抓取数据，再点「生成新报告」。',
@@ -369,6 +403,9 @@ const I18N = {
     'reports.staleToast': '报告已生成（仅有旧数据）',
     'reports.toc': '目录',
     'reports.toastGenerated': '报告已生成',
+    'reports.deleteConfirm': '删除这份报告？正文与溯源关联会一并删除，原始数据不受影响。',
+    'reports.deleted': '报告已删除',
+    'reports.sampleSrc': '示例数据 · 无外部链接',
     'section.summary': '高亮摘要', 'section.economic': '经济分析', 'section.policy': '国家政策',
     'status.generated': '已生成', 'status.failed': '失败', 'status.pending': '生成中',
     'chat.title': '知识库对话',
@@ -377,6 +414,9 @@ const I18N = {
     'chat.selectHint': '选择或新建一个会话开始提问',
     'chat.ready': '会话已就绪，开始提问吧', 'chat.thinking': '思考中…',
     'chat.error': '出错了：', 'chat.cachedNote': '（本次结果命中 Redis 缓存）',
+    'chat.refs': '参考来源', 'chat.reportSection': '报告',
+    'chat.deleteConfirm': '删除这个对话？消息记录会一并删除，不可撤销。',
+    'chat.deleted': '对话已删除',
     'chat.untitled': '会话', 'chat.empty': '暂无会话，点「新建会话」。',
     'config.title': '个性化配置',
     'config.subtitle': '角色影响报告口吻，订阅模块决定聚合哪些数据',
@@ -424,6 +464,7 @@ const I18N = {
     'ph.question': 'e.g. How have motor raw material prices changed this quarter?',
     'btn.login': 'Sign in', 'btn.register': 'Create account', 'btn.registering': 'Creating…',
     'btn.logout': 'Sign out', 'btn.add': 'Add', 'btn.trigger': 'Fetch', 'btn.triggering': 'Fetching…',
+    'btn.delete': 'Delete',
     'btn.triggerAll': 'Fetch all sources', 'btn.generate': 'Generate report',
     'btn.generating': 'Generating… (calling LLM, ~10-30s)',
     'btn.newSession': 'New chat', 'btn.send': 'Send', 'btn.save': 'Save settings',
@@ -445,8 +486,16 @@ const I18N = {
     'sources.moduleTag': 'Module', 'sources.typeApi': 'API (JSON)', 'sources.typeCrawler': 'Crawler (HTML)',
     'toast.sourceAdded': 'Data source added', 'toast.triggeringAll': 'Fetching all data sources…',
     'toast.dispatched': 'Dispatched {n} items, ingesting…', 'toast.sent': 'Dispatched {n} items, waiting for ingestion',
+    'btn.purge': 'Clear data',
+    'sources.purgeConfirm': 'This deletes all raw data, vector chunks and reports (source configs are kept). This cannot be undone. Continue?',
+    'sources.purgeAsk': 'Enter the admin password to confirm',
+    'sources.purgeDone': 'Cleared {rows} raw items and {reports} reports',
+    'stats.title': 'Ingestion overview', 'stats.rows': 'Raw items', 'stats.sources': 'Sources',
+    'stats.vectors': 'Vector chunks', 'stats.latest': 'Latest ingested',
+    'stats.byModule': 'By module', 'stats.bySource': 'By source',
+    'stats.empty': 'No data yet. Click Fetch all sources at the top right to start.',
     'reports.title': 'AI Intelligence Reports',
-    'reports.subtitle': 'Reports tailored to your role and modules, aggregating the last 72 hours (real LLM calls)',
+    'reports.subtitle': 'Reports tailored to your role and modules, aggregating the last 7 days (real LLM calls)',
     'reports.history': 'Report history', 'reports.detail': 'Report detail',
     'reports.selectHint': 'Select a report on the left, or generate a new one.',
     'reports.empty': 'No reports yet. Fetch data first, then click Generate report.',
@@ -457,6 +506,9 @@ const I18N = {
     'reports.staleToast': 'Report generated (stale data only)',
     'reports.toc': 'Contents',
     'reports.toastGenerated': 'Report generated',
+    'reports.deleteConfirm': 'Delete this report? Its sections and source links will be removed; raw data is not affected.',
+    'reports.deleted': 'Report deleted',
+    'reports.sampleSrc': 'Sample data · no external link',
     'section.summary': 'Highlights', 'section.economic': 'Economic analysis', 'section.policy': 'Government policy',
     'status.generated': 'generated', 'status.failed': 'failed', 'status.pending': 'pending',
     'chat.title': 'Knowledge Chat',
@@ -465,6 +517,9 @@ const I18N = {
     'chat.selectHint': 'Select or create a chat to start asking',
     'chat.ready': 'Chat is ready. Ask a question.', 'chat.thinking': 'Thinking…',
     'chat.error': 'Error: ', 'chat.cachedNote': '(this answer was served from the Redis cache)',
+    'chat.refs': 'Sources', 'chat.reportSection': 'Report',
+    'chat.deleteConfirm': 'Delete this chat? All messages will be removed. This cannot be undone.',
+    'chat.deleted': 'Chat deleted',
     'chat.untitled': 'Chat', 'chat.empty': 'No chats yet. Click New chat.',
     'config.title': 'Preferences',
     'config.subtitle': 'Role shapes the report tone; modules decide what data is aggregated',
@@ -510,6 +565,7 @@ const BACKEND_MSG_EN = {
   '你订阅的模块暂无任何数据，请先在「数据源与入库」中抓取数据': 'No data for your subscribed modules. Fetch data in Sources & Ingestion first.',
   '报告生成失败，请稍后重试': 'Report generation failed, please try again.',
   '管理员密码错误': 'Incorrect admin password',
+  '管理员密码不正确': 'Incorrect admin password',
   '需要管理员模式': 'Admin mode required',
   '邮箱格式不正确，请填写如 name@example.com': 'Invalid email format, e.g. name@example.com'
 };
@@ -557,6 +613,12 @@ function t(key, vars){
 function roleLabel(name){ return (ROLE_LABEL[name] || {})[S.lang] || name; }
 function moduleLabel(item){ return (MODULE_LABEL[item.module_code] || {})[S.lang] || item.module_name; }
 function moduleLabelByCode(code){ return (MODULE_LABEL[code] || {})[S.lang] || code; }
+/* 会话默认标题由后端写入「新会话」，英文界面下按当前语言显示 */
+function sessTitle(s){
+  const raw = String(s.title || '').trim();
+  if (!raw || raw === '新会话' || raw === 'New chat') return t('chat.untitled');
+  return raw;
+}
 function fieldLabel(field){
   const key = 'field.' + field;
   const label = t(key);
@@ -844,13 +906,60 @@ function switchView(view){
 /* ============================================================
  * 视图：数据源与入库
  * ============================================================ */
+/* 入库概览：总量 + 按模块 + 按来源 */
+async function loadStats(){
+  const box = $('statsCard');
+  if (!box) return;
+  let s;
+  try { s = await api('/api/sources/stats'); }
+  catch (e) { box.innerHTML = ''; return; }
+
+  if (!s.total) {
+    box.innerHTML = `<div class="card"><h3>${t('stats.title')}</h3>`
+      + `<p style="color:var(--faint)">${t('stats.empty')}</p></div>`;
+    return;
+  }
+
+  const bar = (label, count, max, sub) => `
+    <div class="bar">
+      <div class="bhead"><span>${esc(label)}${sub ? ` <span style="color:var(--faint)">${esc(sub)}</span>` : ''}</span><b>${count}</b></div>
+      <div class="track"><div class="fill" style="width:${Math.max(3, Math.round(count / max * 100))}%"></div></div>
+    </div>`;
+
+  const maxM = Math.max(...s.by_module.map(x => x.rows), 1);
+  const maxS = Math.max(...s.by_source.map(x => x.rows), 1);
+  // 模块名与数据源名来自数据库（中文），英文界面下做一次映射
+  const modName = (x) => (MODULE_LABEL[x.code] ? moduleLabelByCode(x.code) : x.name);
+  const srcName = (x) => sourceLabel({ source_name: x.name });
+  const typeName = (tp) => (tp === 'api' ? 'API' : (S.lang === 'en' ? 'Crawler' : '爬虫'));
+
+  box.innerHTML = `<div class="card">
+    <h3>${t('stats.title')}</h3>
+    <div class="statrow">
+      <div class="stat"><div class="n">${s.total}</div><div class="l">${t('stats.rows')}</div></div>
+      <div class="stat"><div class="n">${s.sources}</div><div class="l">${t('stats.sources')}</div></div>
+      <div class="stat"><div class="n">${s.vectors}</div><div class="l">${t('stats.vectors')}</div></div>
+      <div class="stat"><div class="n" style="font-size:15px;line-height:1.5">${fmtTime(s.latest_at)}</div><div class="l">${t('stats.latest')}</div></div>
+    </div>
+    <div class="grid c2" style="margin-top:14px;align-items:start">
+      <div><div class="sec-title">${t('stats.byModule')}</div>
+        ${s.by_module.map(x => bar(modName(x), x.rows, maxM)).join('')}</div>
+      <div><div class="sec-title">${t('stats.bySource')}</div>
+        ${s.by_source.map(x => bar(srcName(x), x.rows, maxS, typeName(x.type))).join('')}</div>
+    </div>
+  </div>`;
+}
+
 async function viewSources(){
   const v = $('view');
   v.innerHTML = `
     <div class="page-head"><div><h2>${t('sources.title')}</h2>
       <p>${t('sources.subtitle')}</p></div>
       <div class="spacer"></div>
+      <button class="btn ghost sm" id="btnPurge">${t('btn.purge')}</button>
       <button class="btn sm" id="btnAll">${t('btn.triggerAll')}</button></div>
+
+    <div id="statsCard"></div>
 
     <div class="card">
       <h3>${t('sources.addTitle')}</h3>
@@ -885,6 +994,25 @@ async function viewSources(){
       toast(t('toast.dispatched', {n: rs.reduce((a,b)=>a+b.sent,0)})); setTimeout(loadSources, 1500);
     } catch (e) { toast(e.message); }
   };
+  $('btnPurge').onclick = async () => {
+    if (!confirm(t('sources.purgeConfirm'))) return;
+    const pwd = prompt(t('sources.purgeAsk'));
+    if (!pwd) return;
+    const b = $('btnPurge');
+    b.disabled = true;
+    try {
+      const r = await api('/api/sources/purge', {
+        method: 'POST', body: JSON.stringify({password: pwd})
+      });
+      toast(t('sources.purgeDone', {rows: r.raw_rows, reports: r.reports}));
+      loadSources();
+    } catch (e) {
+      toast(e.message);
+    } finally {
+      b.disabled = false;
+    }
+  };
+  loadStats();
   loadSources();
 }
 
@@ -925,6 +1053,8 @@ async function loadSources(){
       })).catch(() => {});
     }
   } catch (e) { $('rawList').innerHTML = ''; }
+
+  loadStats();
 }
 
 /* ============================================================
@@ -956,12 +1086,30 @@ async function loadReports(){
   try {
     const list = await api('/api/reports');
     $('rptList').innerHTML = list.length ? '<div class="list">' + list.map(r => `
-      <div class="item" data-rpt="${r.report_id}" style="cursor:pointer">
-        <div class="t">${esc(r.title)}</div>
-        <div class="m">${fmtTime(r.generated_time)} · ${esc(statusLabel(r.status))}</div></div>`).join('') + '</div>'
+      <div class="item rpt-item" data-rpt="${r.report_id}" style="cursor:pointer">
+        <div class="rpt-main">
+          <div class="t">${esc(r.title)}</div>
+          <div class="m">${fmtTime(r.generated_time)} · ${esc(statusLabel(r.status))}</div>
+        </div>
+        <button class="btn ghost sm rpt-del" data-del="${r.report_id}">${t('btn.delete')}</button>
+      </div>`).join('') + '</div>'
       : `<p style="color:var(--faint)">${t('reports.empty')}</p>`;
     $('rptList').querySelectorAll('[data-rpt]').forEach(el => el.onclick = async () => {
       try { renderDetail(await api('/api/reports/' + el.dataset.rpt)); } catch (e) { toast(e.message); }
+    });
+    $('rptList').querySelectorAll('[data-del]').forEach(btn => btn.onclick = async (ev) => {
+      ev.stopPropagation();               // 别触发整行的“打开报告”
+      if (!confirm(t('reports.deleteConfirm'))) return;
+      btn.disabled = true;
+      try {
+        await api('/api/reports/' + btn.dataset.del, {method: 'DELETE'});
+        toast(t('reports.deleted'));
+        if (S.report && S.report.report_id === btn.dataset.del) {
+          S.report = null;
+          $('rptDetail').innerHTML = `<p style="color:var(--faint)">${t('reports.selectHint')}</p>`;
+        }
+        loadReports();
+      } catch (e) { toast(e.message); btn.disabled = false; }
     });
   } catch (e) { $('rptList').innerHTML = '<p style="color:var(--err)">' + esc(e.message) + '</p>'; }
 }
@@ -970,7 +1118,7 @@ function staleText(r){
   const sep = S.lang === 'en' ? ', ' : '、';
   const names = (codes) => (codes || []).map(moduleLabelByCode).join(sep);
   let msg = t('reports.stale', {
-    hours: r.lookback_hours || 72,
+    hours: r.lookback_hours || 168,
     time: fmtTime(r.latest_source_time)
   });
   const stale = names(r.stale_module_codes);
@@ -1065,11 +1213,30 @@ async function loadSessions(){
   try {
     const list = await api('/api/chat/sessions');
     $('sessList').innerHTML = list.length ? '<div class="list">' + list.map(s => `
-      <div class="item" data-sess="${s.session_id}" style="cursor:pointer">
-        <div class="t">${esc(s.title || t('chat.untitled'))}</div>
-        <div class="m">${fmtTime(s.last_active_at)}</div></div>`).join('') + '</div>'
+      <div class="item chat-item" data-sess="${s.session_id}" style="cursor:pointer">
+        <div class="chat-main">
+          <div class="t">${esc(sessTitle(s))}</div>
+          <div class="m">${fmtTime(s.last_active_at)}</div>
+        </div>
+        <button class="btn ghost sm chat-del" data-delsess="${s.session_id}">${t('btn.delete')}</button>
+      </div>`).join('') + '</div>'
       : `<p style="color:var(--faint)">${t('chat.empty')}</p>`;
     $('sessList').querySelectorAll('[data-sess]').forEach(el => el.onclick = () => openSession(el.dataset.sess));
+    $('sessList').querySelectorAll('[data-delsess]').forEach(btn => btn.onclick = async (ev) => {
+      ev.stopPropagation();               // 别触发整行的“打开会话”
+      if (!confirm(t('chat.deleteConfirm'))) return;
+      btn.disabled = true;
+      try {
+        await api('/api/chat/sessions/' + btn.dataset.delsess, {method: 'DELETE'});
+        toast(t('chat.deleted'));
+        if (S.session === btn.dataset.delsess) {
+          S.session = null;
+          $('chatlog').innerHTML = `<div class="msg sys">${t('chat.selectHint')}</div>`;
+          $('q').disabled = true; $('btnAsk').disabled = true;
+        }
+        loadSessions();
+      } catch (e) { toast(e.message); btn.disabled = false; }
+    });
   } catch (e) { $('sessList').innerHTML = '<p style="color:var(--err)">' + esc(e.message) + '</p>'; }
 }
 
@@ -1097,6 +1264,52 @@ function addMsg(role, text){
   return d;
 }
 
+/* 示例数据的 url 指向不存在的 demo 域名，不能当成可点的外链 */
+function isSampleUrl(u){
+  u = String(u || '').trim();
+  return !u || /^(https?:\/\/)?demo\./i.test(u) || u.indexOf('demo.finbrief.local') >= 0;
+}
+
+/* 回答 + 引用列表：序号与正文里的 [n] 对应，有原地址就一并显示 */
+function answerHtml(r){
+  let html = esc(r.answer || '');
+  const refs = Array.isArray(r.references) ? r.references : [];
+  if (refs.length) {
+    // 同一篇文章的多个分块合并成一条，编号并列显示，例如 [1][2][3]
+    const groups = [];
+    refs.forEach((x, i) => {
+      const key = [x.url || '', x.title || '', x.section_type || '', x.owner_type || ''].join('|');
+      let g = groups.find(v => v.key === key);
+      if (!g) { g = {key, x, nos: []}; groups.push(g); }
+      g.nos.push(x.index || (i + 1));
+    });
+
+    html += `<div class="refs"><div class="refs-title">${t('chat.refs')}</div>`;
+    groups.forEach(g => {
+      const x = g.x;
+      const no = g.nos.map(n => `[${n}]`).join('');
+      const title = x.title
+        || (x.section_type ? t('chat.reportSection') + ' · ' + sectionLabel(x.section_type) : x.owner_type);
+      const snippet = x.snippet ? `<div class="ref-snippet">${esc(x.snippet)}…</div>` : '';
+      const realLinks = (Array.isArray(x.sources) ? x.sources : []).filter(s => !isSampleUrl(s.url));
+      const behind = realLinks.length
+        ? `<div class="ref-links">` + realLinks.map(s =>
+            `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title || s.url)}</a>`).join('') + `</div>`
+        : '';
+      if (!isSampleUrl(x.url)) {
+        html += `<div class="ref-item"><span class="ref-no">${no}</span>`
+          + `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(title)}</a>`
+          + snippet + `<div class="src-url">${esc(x.url)}</div>` + behind + `</div>`;
+      } else {
+        html += `<div class="ref-item"><span class="ref-no">${no}</span>${esc(title)}${snippet}${behind}</div>`;
+      }
+    });
+    html += '</div>';
+  }
+  if (r.cached) html += `<div class="cached-note">${t('chat.cachedNote')}</div>`;
+  return html;
+}
+
 async function askQuestion(){
   const q = $('q').value.trim(); if (!q || !S.session) return;
   $('q').value = ''; addMsg('user', q);
@@ -1104,7 +1317,7 @@ async function askQuestion(){
   $('btnAsk').disabled = true;
   try {
     const r = await api('/api/chat/ask', {method:'POST', body: JSON.stringify({session_id: S.session, question: q, lang: S.lang})});
-    pending.textContent = r.answer + (r.cached ? '\n\n' + t('chat.cachedNote') : '');
+    pending.innerHTML = answerHtml(r);
   } catch (e) { pending.textContent = t('chat.error') + e.message; }
   finally { $('btnAsk').disabled = false; }
 }
