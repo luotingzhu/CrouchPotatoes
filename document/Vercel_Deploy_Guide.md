@@ -30,6 +30,8 @@
    ```
    这个值后面填到 Vercel 的 `POSTGRES_DSN`。
 
+   > 注意：Neon 控制台复制的串末尾可能带 `&channel_binding=require`，asyncpg 不支持该参数，必须删掉，只保留 `?ssl=require`。
+
 4. 在本机建表（schema 里有 `CREATE EXTENSION vector`，Neon 支持 pgvector）：
 
    ```powershell
@@ -57,6 +59,9 @@
    rediss://default:AXxxxx@eu1-xxxx.upstash.io:6379
    ```
    Upstash 默认要求 TLS，所以前缀是 `rediss://`，后端 `redis-py` 原生支持。
+
+   > Upstash 控制台给的 `redis-cli --tls -u redis://...` 只是命令行自测用的；
+   > 填到应用里的 `REDIS_URL` 必须把协议头改成 `rediss://`（多一个 s），否则会连不上。
 3. 这个值填到 Vercel 的 `REDIS_URL`。
 
 ---
@@ -90,6 +95,21 @@
 ---
 
 ## 4. 验证上线
+
+### 4.0 已实测通过的记录（2026-11-26，Neon 项目 `bitter-glitter-59771841`）
+
+| 步骤 | 结果 |
+|---|---|
+| 执行 `scripts/init_db.py` | schema 全部执行成功（含 `CREATE EXTENSION vector`、月分区、GIN/HNSW 索引） |
+| 执行 `scripts/seed_demo.py` | 10 个真实数据源 + `demo / demo1234` 账号 |
+| `/api/health` | `serverless: true` |
+| 登录 + `/api/sources` | 正常，返回 10 个源 |
+| 触发源 #5（同步入库） | 20 秒，入库 3 条，生成 23 个向量分块 |
+| `/api/chat/ask` | 10 秒返回 979 字答案，6 条结构化引用 |
+| `POST /api/reports/generate` | 25 秒，3 个章节 + 3 条溯源 |
+| 接入 Upstash（`rediss://`）后重新验证 | 登录（令牌存 Upstash）、`/api/auth/me`、会话列表、问答均正常；问答 17 秒返回 1699 字 + 6 条引用 |
+
+### 4.1 部署后自检
 
 把 `<your-app>.vercel.app` 替换成实际域名：
 
