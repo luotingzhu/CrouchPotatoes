@@ -1487,17 +1487,41 @@ function paintEvents(events){
 /* ============================================================
  * SSE：实时管道事件（全局，任何视图都可见）
  * ============================================================ */
-function connectEvents(){
+async function connectEvents(){
+  // Serverless（Vercel）下 SSE 长连接会被函数超时掐断，改用轮询最近事件
+  let serverless = false;
+  try { serverless = !!(await api('/api/health')).serverless; } catch {}
+  if (serverless) { pollEvents(); return; }
+
   const es = new EventSource('/api/system/events');
   es.onmessage = (m) => {
     if (!m.data) return;
     let e; try { e = JSON.parse(m.data); } catch { return; }
-    S.events.push(e); if (S.events.length > 200) S.events.shift();
-    $('liveStage').textContent = e.stage;
-    $('liveTick').textContent = fmtTime(e.ts) + '  ' + evText(e);
-    if (S.view === 'system') paintEvents(S.events);
+    ingestEvent(e);
   };
   es.onerror = () => { $('liveStage').textContent = t('live.reconnecting'); };
+}
+
+/* Serverless 轮询：每 3 秒拉最近事件，按时间戳去重 */
+function pollEvents(){
+  let lastTs = S.events.length ? S.events[S.events.length - 1].ts : '';
+  const tick = async () => {
+    try {
+      const evs = await api('/api/system/events/recent');
+      (evs || []).forEach(e => {
+        if (!lastTs || e.ts > lastTs) { ingestEvent(e); lastTs = e.ts; }
+      });
+    } catch {}
+  };
+  tick();
+  setInterval(tick, 3000);
+}
+
+function ingestEvent(e){
+  S.events.push(e); if (S.events.length > 200) S.events.shift();
+  $('liveStage').textContent = e.stage;
+  $('liveTick').textContent = fmtTime(e.ts) + '  ' + evText(e);
+  if (S.view === 'system') paintEvents(S.events);
 }
 
 /* ============================================================

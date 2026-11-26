@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -31,6 +32,7 @@ from app.services.ai_client import chat_complete
 from app.services.ingestion_service import IngestionService
 
 router = APIRouter(prefix="/api/sources", tags=["sources"])
+settings = get_settings()
 
 
 @router.get("", response_model=list[SourceOut])
@@ -92,6 +94,11 @@ async def trigger_source(
         raise HTTPException(404, "数据源不存在")
 
     service = IngestionService()
+    if settings.serverless:
+        # 无常驻消费者：在本次请求内完成抓取 + 入库 + 向量化
+        sent = await service.run_source_inline(source_id)
+        return TriggerOut(source_id=source_id, sent=sent)
+
     # 抓取投递到 Broker 后立即返回；入库由常驻消费者异步完成，前端可通过事件流观察
     task = asyncio.create_task(service.run_source(source_id))
     sent = await task
@@ -112,6 +119,22 @@ async def trigger_all(
 
     service = IngestionService()
     results: list[TriggerOut] = []
+
+    if settings.serverless:
+        # Serverless 单次执行有上限：按时间预算处理，剩余源提示用户再次触发
+        started = time.monotonic()
+        for sid in ids:
+            if time.monotonic() - started > 40:
+                await bus.publish(
+                    "system",
+                    "Serverless 单次执行时间有限，剩余数据源请再次点击「一键抓取全部」",
+                    "Serverless execution time is limited; trigger again for the remaining sources",
+                )
+                break
+            sent = await service.run_source_inline(sid)
+            results.append(TriggerOut(source_id=sid, sent=sent))
+        return results
+
     for sid in ids:
         sent = await service.run_source(sid)
         results.append(TriggerOut(source_id=sid, sent=sent))

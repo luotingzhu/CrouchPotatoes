@@ -182,6 +182,47 @@ class IngestionService:
         )
         return sent
 
+    async def run_source_inline(self, source_id: int) -> int:
+        """Serverless 模式：抓取后直接逐条入库并向量化，返回实际新增条数。
+
+        没有常驻消费者可用，因此必须在本次请求内完成「抓取 → 入库 → 向量化」。
+        """
+        async with AsyncSessionLocal() as session:
+            source = await session.get(DataSource, source_id)
+            if source is None or source.status != 1:
+                logger.warning("数据源 %s 不存在或已停用，跳过", source_id)
+                return 0
+
+            await bus.publish(
+                "crawl",
+                f"开始抓取数据源：{source.source_name}",
+                f"Fetching source: {source_name_en(source.source_name)}",
+                source_id=source_id,
+            )
+            docs = (
+                await self._fetch_api(source)
+                if source.source_type == "api"
+                else await self._crawl(source)
+            )
+
+        stored = 0
+        for doc in docs:
+            doc["source_id"] = source_id
+            try:
+                if await self.handle_message(doc):
+                    stored += 1
+            except Exception:  # noqa: BLE001
+                logger.exception("同步入库失败: %s", doc.get("url"))
+
+        await bus.publish(
+            "crawl",
+            f"数据源 [{source.source_name}] 同步入库完成：抓取 {len(docs)} 条，新增 {stored} 条",
+            f"Source [{source_name_en(source.source_name)}] ingested inline: {len(docs)} fetched, {stored} new",
+            source_id=source_id,
+            count=stored,
+        )
+        return stored
+
     async def _fetch_api(self, source: DataSource) -> list[dict[str, Any]]:
         """API 数据源：请求 JSON 并归一化。"""
         async with httpx.AsyncClient(timeout=15, headers=_HTTP_HEADERS) as client:

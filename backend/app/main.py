@@ -35,7 +35,23 @@ STATIC_DIR = Path(__file__).parent / "static"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """启动：拉起 Broker、常驻入库消费者、进程内调度器。"""
+    """启动：拉起 Broker、常驻入库消费者、进程内调度器。
+
+    Serverless（Vercel）环境下函数实例会被冻结/回收，常驻任务没有意义，
+    因此只保留事件发布，抓取改为请求内同步入库。
+    """
+    if settings.serverless:
+        await bus.publish(
+            "system",
+            "运行于 Serverless 模式：抓取改为请求内同步入库，事件通过轮询获取",
+            "Running in serverless mode: ingestion runs inline and events are polled",
+        )
+        try:
+            yield
+        finally:
+            await engine.dispose()
+        return
+
     broker = get_broker()
     await broker.start()
 
@@ -116,6 +132,7 @@ async def health() -> dict:
         "ok": True,
         "vector_backend": settings.vector_backend,
         "broker_backend": settings.broker_backend,
+        "serverless": settings.serverless,
     }
 
 

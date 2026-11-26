@@ -1,0 +1,15 @@
+# 部署时不上传的内容（减小函数包体积）
+backend/.venv/**
+**/__pycache__/**
+**/*.pyc
+.git/**
+.vscode/**
+screenshots/**
+document/**
+node_modules/**
+db/**
+docker-compose.yml
+start.bat
+start.ps1
+README.md
+v1-v2-对比清单.md

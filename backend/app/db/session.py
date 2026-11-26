@@ -11,13 +11,20 @@ from app.core.config import get_settings
 
 settings = get_settings()
 
+# Serverless / PgBouncer（Neon -pooler）下必须关闭 asyncpg 预编译语句缓存，
+# 同时把连接池压小，避免多个函数实例把数据库连接打满。
+_connect_args: dict = {}
+if "neon.tech" in settings.postgres_dsn or "-pooler" in settings.postgres_dsn:
+    _connect_args["statement_cache_size"] = 0
+
 # 连接池：预检 + 限制上限，适配 API 与 Worker 混合负载
 engine = create_async_engine(
     settings.postgres_dsn,
     pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20,
+    pool_size=2 if settings.serverless else 10,
+    max_overflow=3 if settings.serverless else 20,
     pool_recycle=1800,
+    connect_args=_connect_args,
 )
 
 AsyncSessionLocal = async_sessionmaker(

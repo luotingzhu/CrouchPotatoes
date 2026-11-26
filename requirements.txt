@@ -1,0 +1,19 @@
+# Vercel Python 运行时依赖（仅 API/Serverless 所需，版本与 backend/requirements.txt 对齐）
+# uvicorn / alembic / psycopg / aiokafka 在 Serverless 下不需要（Kafka 与调度器均不启用）
+
+fastapi==0.115.6
+
+pydantic==2.10.4
+pydantic-settings==2.7.1
+
+SQLAlchemy==2.0.36
+asyncpg==0.30.0
+pgvector==0.3.6
+
+redis==5.2.1
+
+httpx==0.28.1
+beautifulsoup4==4.12.3
+lxml==5.3.0
+
+openai==1.59.6

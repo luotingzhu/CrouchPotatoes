@@ -150,6 +150,12 @@ async def status(
     )
 
 
+@router.get("/events/recent")
+async def recent_events(n: int = 20) -> list[dict]:
+    """最近事件（供 Serverless 环境轮询；SSE 长连接在函数里会被超时断开）。"""
+    return bus.history(min(max(n, 1), 100))
+
+
 @router.get("/events")
 async def events(request: Request) -> StreamingResponse:
     """SSE 事件流：实时推送「抓取 → 入库 → 向量化 → 报告」全过程。

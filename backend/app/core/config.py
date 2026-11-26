@@ -50,6 +50,10 @@ class Settings(BaseSettings):
     admin_password: str = "Ch11seburger"
     admin_session_ttl: int = 8 * 3600       # 解锁有效期（秒）
 
+    # ---------- 运行形态：本地常驻进程 / Serverless（Vercel 等） ----------
+    # 为 true 时不启动常驻消费者与调度器，抓取改为请求内同步入库（数据量与耗时都按单次可控）
+    serverless: bool = False
+
     # ---------- 报告生成窗口 ----------
     report_lookback_hours: int = 24         # 每次生成报告回溯的原始数据时间窗
 
